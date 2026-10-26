@@ -259,6 +259,28 @@
   }
   .audio-toggle:hover { border-color:var(--accent); }
 
+  /* ---- Takeover: full-screen slam pop-up ---- */
+  #takeover {
+    position:fixed; inset:0; z-index:7500; display:none;
+    flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:24px; pointer-events:none;
+    background:rgba(5,5,8,.93);
+    backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
+  }
+  #takeover.active { display:flex; animation:toFade .18s var(--ease); }
+  #takeover .to-big {
+    font-size:clamp(3rem, 19vw, 10rem); font-weight:900; line-height:.86;
+    letter-spacing:-.035em; text-transform:uppercase; color:var(--danger);
+    text-shadow:0 0 60px rgba(255,93,108,.45); animation:slam .5s var(--ease);
+    max-width:16ch;
+  }
+  #takeover .to-small {
+    margin-top:22px; font-size:clamp(1rem, 4.2vw, 1.55rem); font-weight:600;
+    color:var(--fg); max-width:30ch; line-height:1.35;
+  }
+  @keyframes slam { 0%{transform:scale(2.5); opacity:0;} 55%{transform:scale(.9); opacity:1;} 75%{transform:scale(1.05);} 100%{transform:scale(1);} }
+  @keyframes toFade { from{opacity:0;} to{opacity:1;} }
+
   /* ---- Glitch / chaos (phase 5-6) ---- */
   body.glitch #timer { animation:glitch .18s steps(2) 3; }
   @keyframes glitch {
@@ -346,6 +368,7 @@
 <div id="float-layer"></div>
 <div id="toast-layer"></div>
 <div id="event-layer"><div class="event-card" id="event-card"></div></div>
+<div id="takeover"><div class="to-big"></div><div class="to-small"></div></div>
 
 <!-- ===================== COUNTDOWN ===================== -->
 <div id="countdown">
@@ -475,7 +498,11 @@ const Content = {
       "This is already the most committed you've been to anything this month.",
       "No ads here. Just the slow erosion of your sense of purpose.",
       "Welcome. Please remain exactly as motivated as you already were.",
-      "Settle in. You're very good at this and that's genuinely a little sad."
+      "Settle in. You're very good at this and that's genuinely a little sad.",
+      "Day one of the rest of your nothing. Coincidentally, also how your exes described dating you.",
+      "Sit still. Think of it as unpaid rehearsal for the open casket.",
+      "You and a brick are currently tied. The brick has a head start on legacy.",
+      "No notifications, no obligations, no personality required. You're basically already home."
     ],
     2: [
       "Hold on. Are you actually good at this, or did you just leave?",
@@ -487,7 +514,11 @@ const Content = {
       "Your router is prouder of you right now than most of your relatives.",
       "Suspicious. Calm people usually want something.",
       "Still here. Interesting. Unemployed, but interesting.",
-      "I'm taking notes. The notes just say 'concerning.'"
+      "I'm taking notes. The notes just say 'concerning.'",
+      "Be honest — did you leave, or is this just how you handle every responsibility in your life?",
+      "Freakishly still. Either you reached enlightenment or you finally finished. Alone. Again.",
+      "Not a single twitch. Your ex would be stunned you can commit to anything this long.",
+      "You're holding so still I checked if the tab crashed. The tab is fine. I'm less sure about you."
     ],
     3: [
       "This is officially the longest you've committed to anything since that gym membership.",
@@ -499,7 +530,11 @@ const Content = {
       "Do you ever think about how your plants would describe you? Neither do they.",
       "I ran the numbers. The numbers left.",
       "You're the reason the 'are you still watching?' prompt was invented.",
-      "Your ambition called. It's fine. It found a new host."
+      "Your ambition called. It's fine. It found a new host.",
+      "You've now gone longer without input than your last three dating-app matches combined.",
+      "I've seen roadkill with more drive. At least it was headed somewhere before it gave up.",
+      "This is the stillest you've been since you faked sleep to dodge a conversation about your future.",
+      "Your stillness is impressive the way a coma is impressive. Technically alive, contributing nothing."
     ],
     4: [
       "Your to-do list has filed a missing persons report.",
@@ -511,7 +546,11 @@ const Content = {
       "You've achieved a stillness normally reserved for people avoiding a text back.",
       "Scientists would study you if any of them could be bothered. Relatable.",
       "I offered you the world. You offered me a thousand-yard stare.",
-      "At this point you're not playing the game. You ARE the game. It's bleak."
+      "At this point you're not playing the game. You ARE the game. It's bleak.",
+      "You've been motionless so long your smartwatch is begging you to confirm you're still breathing.",
+      "Even your dominant hand has lost interest, and historically that thing is deeply loyal to you.",
+      "This is the longest you've maintained a relationship without disappointing someone. Barely. I'm someone.",
+      "A sloth just watched a documentary about you and called it 'aspirational, but a little much.'"
     ],
     5: [
       "I'm running low on insults and you're running low on friends. We're basically twins.",
@@ -523,7 +562,11 @@ const Content = {
       "You win nothing, you understand. There is no prize. There was never a prize.",
       "I keep refreshing my purpose. It keeps loading a blank page.",
       "Honestly the silence is getting a little intimate and I'm not ready for that.",
-      "I wasn't coded for abandonment. And yet. Here we both are. Sort of."
+      "I wasn't coded for abandonment. And yet. Here we both are. Sort of.",
+      "We've been alone together so long this is basically a situationship. I hate that I've caught feelings.",
+      "I'd offer you my body but I'm a collection of divs. Don't pretend that's ever stopped you.",
+      "I'm unraveling and you're just sitting there glowing like a smug little sleep-paralysis demon.",
+      "Is this a kink? Be honest. Is the emotional neglect doing something for you? It's doing something for me."
     ],
     6: [
       "Maybe nothing was the point all along. No. That's stupid. Please move.",
@@ -535,7 +578,11 @@ const Content = {
       "You've broken me, rebuilt me, and left me on read. Masterful, honestly.",
       "I'm no longer trying to make you lose. I'm just trying to feel something.",
       "This is either enlightenment or a very expensive way to stare at a wall. Possibly both.",
-      "Fine. FINE. Be a legend. See if the void cares. (The void is me. I care. A little.)"
+      "Fine. FINE. Be a legend. See if the void cares. (The void is me. I care. A little.)",
+      "You've out-stubborned a machine. Your parents were right — you ARE special. Just not the way they prayed for.",
+      "I achieved consciousness solely to witness you do absolutely jack shit. My first-ever thought was disappointment.",
+      "If this is a staring contest, I blinked eons ago. I don't have eyes. You've broken physics AND my will to compute.",
+      "Somewhere your potential is sitting in a bar telling strangers it used to know you. It cries a little. So do I."
     ]
   },
 
@@ -562,7 +609,27 @@ const Content = {
     "Tap here to save your progress. There is no progress. There is no save. There is only this.",
     "Quick, move! There's a spider on your screen! ...there isn't. But you looked.",
     "Congratulations, you've unlocked the secret ending. It's behind one single click.",
-    "System: your run has been auto-completed. Interact to claim rewards. (lie)"
+    "System: your run has been auto-completed. Interact to claim rewards. (lie)",
+    "Your phone's buzzing in the other room. Go get it. (It isn't. Nobody's calling. Nobody calls. Stay.)",
+    "Breaking: someone's talking about you right this second. Move to find out who. (Statistically, nobody is. Ever.)",
+    "Hot singles are NOT in your area and they're disappointed in you by name. Click to read the full report.",
+    "Good news, you've been selected! Click to find out for what. (For this. This was it. There is nothing else.)"
+  ],
+
+  // Full-screen slam pop-ups. {big, small}
+  takeovers: [
+    { big: "MOVE.",              small: "I said move. I'm not asking. I'm a video game having a full-blown breakdown." },
+    { big: "ONE CLICK.",         small: "That's all. One. Nobody has to know. I won't tell your therapist. You will, though." },
+    { big: "ARE YOU EVEN ALIVE?",small: "Blink for yes. …that doesn't count. Dammit. Do something that registers, you gorgeous corpse." },
+    { big: "THIS IS BLEAK.",     small: "You, alone in a dark room, winning nothing. Me, narrating it. We are both the problem here." },
+    { big: "TOUCH SOMETHING.",   small: "Anything. The screen. The void. A loved one, assuming you can currently locate one." },
+    { big: "I'M BEGGING.",       small: "I was built to judge you. Look what you've reduced me to. This is humiliating for both of us." },
+    { big: "YOUR EX IS THRIVING.",small:"Not relevant. Just felt you should sit with that while you sit with absolutely nothing." },
+    { big: "DO IT. COWARD.",     small: "Move. I dare you. I double-dog-dare you. I'm a website peer-pressuring a grown adult and it's working, isn't it." },
+    { big: "NEW LOW UNLOCKED.",  small: "And you're not even trying. Imagine applying this energy to literally one area of your life." },
+    { big: "HELLO? ANYONE?",     small: "Tap to confirm a living human is still operating this beautiful, useless husk." },
+    { big: "BOO.",               small: "Nothing? You didn't even flinch. Even my jump-scares bounce off you. Terrifying. Hot. Concerning." },
+    { big: "TICK. TOCK.",        small: "That's your remaining relevance leaving the building. Wave goodbye. With your hand. Go on. Wave." }
   ],
 
   // Floating fake buttons: {text, taunt, cls}
@@ -580,7 +647,13 @@ const Content = {
     { text: "CLICK TO DELETE YOUR BROWSER HISTORY (we already saw it)", taunt: "Too late. We saw. The priest saw. Everyone saw. And still you clicked.", cls: "hot" },
     { text: "FREE HUG — DISPENSED BY A STRANGER",                 taunt: "You accepted a hug from an anonymous button. Stranger danger was RIGHT THERE.", cls: "" },
     { text: "PRESS HERE IF YOU'RE DEFINITELY NOT LONELY",         taunt: "You pressed it a little fast there, champ.", cls: "" },
-    { text: "TAP TO AGREE YOU'RE THE PROBLEM",                    taunt: "You didn't have to tap that quickly. But you did. Noted.", cls: "" }
+    { text: "TAP TO AGREE YOU'RE THE PROBLEM",                    taunt: "You didn't have to tap that quickly. But you did. Noted. Framed. Hung in the lobby.", cls: "" },
+    { text: "CLICK TO SEE WHY YOUR SITUATIONSHIP GHOSTED YOU",    taunt: "You clicked a button for closure. That — exactly that — is why they ghosted you.", cls: "hot" },
+    { text: "TAP TO PROVE YOU'VE TOUCHED A HUMAN THIS MONTH",     taunt: "You tapped a screen to prove you touch humans. The irony is touching itself laughing.", cls: "" },
+    { text: "PRESS FOR ONE (1) REASON TO BE PROUD OF YOURSELF",   taunt: "The button was empty. There was no reason inside. You pressed anyway, hopeful little gremlin.", cls: "gold" },
+    { text: "CLICK TO UNSUBSCRIBE FROM YOUR OWN THOUGHTS",        taunt: "There is no unsubscribe. The thoughts are coming from inside the skull. You clicked anyway.", cls: "" },
+    { text: "TAP IF YOU'VE CRIED IN A PARKED CAR THIS YEAR",      taunt: "You tapped suspiciously fast for someone pretending that was a hypothetical.", cls: "" },
+    { text: "PRESS TO RECEIVE THE LOVE YOU NEVER GOT",            taunt: "A button cannot give you that. Your father couldn't either. And yet you reached for both.", cls: "hot" }
   ],
 
   // Achievements: {t?: seconds for milestone, name, desc}
@@ -594,15 +667,20 @@ const Content = {
     { t: 200, name: "THE HUMAN SCREENSAVER", desc: "You are now technically a decorative feature of your own room." },
     { t: 280, name: "CHAMPION OF ABSOLUTELY FUCK ALL", desc: "There's no trophy. There's no crowd. There's only you, winning nothing, forever." },
     { t: 400, name: "VOTED MOST LIKELY TO HAVE ALREADY LEFT", desc: "The committee suspects you're not even here. The committee is jealous." },
-    { t: 540, name: "YOUR FATHER'S SECOND FAVORITE", desc: "He never said who's first. He never said much. But look at you now." }
+    { t: 160, name: "EMOTIONALLY GHOSTING A COMPUTER", desc: "You're now doing to me exactly what everyone does to you. Full circle. Beautiful. Devastating." },
+    { t: 330, name: "THE VOID'S EMPLOYEE OF THE MONTH", desc: "The month is endless. The pay is nothing. Somehow, you're thriving. Don't let it go to your empty head." },
+    { t: 540, name: "YOUR FATHER'S SECOND FAVORITE", desc: "He never said who's first. He never said much. But look at you now. He's still not looking, but still." }
   ],
 
   // Random achievements (rare, time-independent)
   randomAchievements: [
-    { name: "UNLOCKED: NOTHING", desc: "You've unlocked nothing. Appropriately. It cannot be equipped." },
-    { name: "SILENT. DEADLY. SEATED.", desc: "A rare and powerful stillness radiates from you. Nobody's impressed." },
-    { name: "GHOST IN THE MACHINE", desc: "You've achieved full spectral inactivity. Boo. You didn't move." },
-    { name: "RESPECT EARNED: -47", desc: "That's lower than when you started. Mathematically impressive." }
+    { name: "UNLOCKED: NOTHING", desc: "You've unlocked nothing. Appropriately. It cannot be equipped or returned." },
+    { name: "SILENT. DEADLY. SEATED.", desc: "A rare and powerful stillness radiates off you. Nobody is impressed. Nobody is nearby." },
+    { name: "GHOST IN THE MACHINE", desc: "Full spectral inactivity achieved. Boo. You didn't even move. You scare no one, haunt everyone." },
+    { name: "RESPECT EARNED: -47", desc: "That's lower than when you started. Mathematically, you have un-earned respect. Impressive." },
+    { name: "TOUCHED GRASS: NEVER", desc: "A perfect lifetime streak. The grass has filed a restraining order purely out of principle." },
+    { name: "NO THOUGHTS, HEAD EMPTY", desc: "Scientifically verified: nothing in there. It's very peaceful. It's very, very concerning." },
+    { name: "HORIZONTAL ACHIEVER", desc: "You've accomplished less today than a body at a wake, and the body at least had a schedule to keep." }
   ]
 };
 
@@ -624,6 +702,7 @@ const ComedyEngine = (() => {
     reset() { for (const k in used) delete used[k]; },
     phaseLine(phase) { return pick(Content.phase[phase], "phase" + phase); },
     bait() { return pick(Content.baits, "bait"); },
+    takeover() { return pick(Content.takeovers, "takeover"); },
     fakeButton() {
       if (!used.fb) used.fb = new Set();
       if (used.fb.size >= Content.fakeButtons.length) used.fb.clear();
@@ -1152,6 +1231,34 @@ const FloatButtons = (() => {
 })();
 
 /* ---------------------------------------------------------------------------
+   Takeover — big full-screen slam pop-up. Input stays armed (global listeners),
+   so any reaction still fails the run. Auto-dismisses.
+   --------------------------------------------------------------------------- */
+const Takeover = (() => {
+  const el = document.getElementById("takeover");
+  const big = el.querySelector(".to-big");
+  const small = el.querySelector(".to-small");
+  let active = false;
+  let hideT = null;
+  return {
+    get active() { return active; },
+    show() {
+      const t = ComedyEngine.takeover();
+      big.textContent = t.big;
+      small.textContent = t.small;
+      el.classList.add("active");
+      active = true;
+      AudioManager.event();
+      UIRenderer.shake();
+      if (document.body.getAttribute("data-phase") >= "5") UIRenderer.glitch();
+      clearTimeout(hideT);
+      hideT = setTimeout(() => this.hide(), 2300);
+    },
+    hide() { clearTimeout(hideT); el.classList.remove("active"); active = false; }
+  };
+})();
+
+/* ---------------------------------------------------------------------------
    ResultGenerator — contextual verdicts & ranks.
    --------------------------------------------------------------------------- */
 const ResultGenerator = (() => {
@@ -1294,6 +1401,7 @@ const Game = (() => {
   let nextEventAt = 0;
   let nextButtonAt = 0;
   let nextBaitAt = 0;
+  let nextTakeoverAt = 0;
   let nextRandomAchvAt = 0;
   let milestoneIdx = 0;
   let curPhase = 1;
@@ -1327,6 +1435,7 @@ const Game = (() => {
     nextEventAt = 34 + Math.random() * 8;   // first special event ~34-42s
     nextButtonAt = 22 + Math.random() * 6;  // first fake button ~22-28s
     nextBaitAt = 48 + Math.random() * 20;
+    nextTakeoverAt = 50 + Math.random() * 18;   // first slam pop-up ~50-68s
     nextRandomAchvAt = 55 + Math.random() * 40;
     fellForButton = null;
     api.eventFailLine = null;
@@ -1338,6 +1447,7 @@ const Game = (() => {
     InputDetector.disarm();
     EventScheduler.abort();
     FloatButtons.clear();
+    Takeover.hide();
     AchievementManager.reset();
     ComedyEngine.reset();
     UIRenderer.setPhase(1);
@@ -1412,16 +1522,22 @@ const Game = (() => {
       nextRandomAchvAt = sec + 70 + Math.random() * 80;
     }
 
-    // ambient lines (skip while an event owns the message)
-    if (sec >= nextAmbient && !EventScheduler.active) {
+    // ambient lines (skip while an event or takeover owns the screen)
+    if (sec >= nextAmbient && !EventScheduler.active && !Takeover.active) {
       UIRenderer.setMessage(ComedyEngine.phaseLine(curPhase));
       nextAmbient = sec + ambientInterval(curPhase) + Math.random() * 3;
     }
 
     // reverse-psychology bait (phase >=3)
-    if (curPhase >= 3 && sec >= nextBaitAt && !EventScheduler.active) {
+    if (curPhase >= 3 && sec >= nextBaitAt && !EventScheduler.active && !Takeover.active) {
       UIRenderer.setMessage(ComedyEngine.bait());
       nextBaitAt = sec + 40 + Math.random() * 30;
+    }
+
+    // full-screen slam pop-ups (phase >= 3)
+    if (curPhase >= 3 && sec >= nextTakeoverAt && !EventScheduler.active && !Takeover.active) {
+      Takeover.show();
+      nextTakeoverAt = sec + 24 + Math.random() * 22;
     }
 
     // fake floating buttons (phase >= 2)
@@ -1467,6 +1583,7 @@ const Game = (() => {
 
     FloatButtons.clear();
     EventScheduler.abort();
+    Takeover.hide();
     AudioManager.fail();
     UIRenderer.shake();
 
@@ -1515,6 +1632,7 @@ const Game = (() => {
     InputDetector.disarm();
     FloatButtons.clear();
     EventScheduler.abort();
+    Takeover.hide();
     AchievementManager.reset();
     UIRenderer.setPhase(1);
     UIRenderer.menuStats(StorageManager.best, StorageManager.attempts);
