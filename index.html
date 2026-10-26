@@ -259,6 +259,34 @@
   }
   .audio-toggle:hover { border-color:var(--accent); }
 
+  /* ---- Notification banners ---- */
+  #banner-layer {
+    position:fixed; top:calc(env(safe-area-inset-top,0px) + 66px); left:50%;
+    transform:translateX(-50%); z-index:5800; width:min(94vw,440px);
+    display:flex; flex-direction:column; gap:10px; pointer-events:none;
+  }
+  .banner {
+    width:100%; background:rgba(20,20,28,.84); border:1px solid var(--line);
+    border-radius:16px; padding:12px 14px; display:flex; gap:12px; align-items:flex-start;
+    text-align:left; box-shadow:0 14px 44px rgba(0,0,0,.55);
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+    animation:bannerIn .4s var(--ease);
+  }
+  .banner.out { animation:bannerOut .35s var(--ease) forwards; }
+  .banner .b-ico { width:38px; height:38px; border-radius:10px; background:var(--bg2); display:flex; align-items:center; justify-content:center; font-size:1.25rem; flex:0 0 auto; }
+  .banner .b-main { flex:1; min-width:0; }
+  .banner .b-top { display:flex; justify-content:space-between; gap:8px; font-size:.6rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .banner .b-title { font-weight:800; font-size:.92rem; margin-top:2px; }
+  .banner .b-body { font-size:.82rem; color:var(--fg); margin-top:3px; line-height:1.35; opacity:.92; }
+  .banner.battery { border-color:var(--danger); }
+  .banner.battery .b-ico { background:rgba(255,93,108,.16); }
+  .banner.battery .b-title { color:var(--danger); }
+  @keyframes bannerIn { from{opacity:0; transform:translateY(-18px) scale(.97);} to{opacity:1; transform:none;} }
+  @keyframes bannerOut { to{opacity:0; transform:translateY(-12px) scale(.98);} }
+
+  /* brief whole-screen invert flash (phase 6 chaos) */
+  body.invert { filter:invert(1) hue-rotate(180deg); }
+
   /* ---- Takeover: full-screen slam pop-up ---- */
   #takeover {
     position:fixed; inset:0; z-index:7500; display:none;
@@ -367,6 +395,7 @@
 <!-- layers that live above everything during play -->
 <div id="float-layer"></div>
 <div id="toast-layer"></div>
+<div id="banner-layer"></div>
 <div id="event-layer"><div class="event-card" id="event-card"></div></div>
 <div id="takeover"><div class="to-big"></div><div class="to-small"></div></div>
 
@@ -459,7 +488,14 @@ const AudioManager = (() => {
     event()       { beep(300,.2,"sawtooth",.06); beep(450,.18,"sine",.05,.08); },
     fail()        { const c=ensure(); if(!c)return; [440,330,220,160].forEach((f,i)=>beep(f,.3,"sawtooth",.12,i*.1)); },
     record()      { [523,659,784,1046,1318].forEach((f,i)=>beep(f,.18,"square",.09,i*.09)); },
-    anticlimax()  { beep(200,.25,"sine",.08); } // a sad little plip
+    anticlimax()  { beep(200,.25,"sine",.08); }, // a sad little plip
+    ping()        { beep(1180,.06,"sine",.09); beep(1560,.05,"sine",.06,.05); }, // notification
+    swoosh()      { const c=ensure(); if(!c)return; const t=c.currentTime,o=c.createOscillator(),g=c.createGain();
+                    o.type="sine"; o.frequency.setValueAtTime(320,t); o.frequency.exponentialRampToValueAtTime(900,t+.18);
+                    g.gain.setValueAtTime(.05,t); g.gain.exponentialRampToValueAtTime(.0001,t+.2);
+                    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t+.22); },
+    battery()     { beep(900,.11,"square",.08); beep(660,.11,"square",.08,.13); beep(480,.14,"square",.07,.26); },
+    zap()         { beep(130,.18,"sawtooth",.11); beep(90,.2,"sawtooth",.08,.04); }
   };
 })();
 
@@ -632,6 +668,34 @@ const Content = {
     { big: "TICK. TOCK.",        small: "That's your remaining relevance leaving the building. Wave goodbye. With your hand. Go on. Wave." }
   ],
 
+  // Fake notification banners (clearly in-game, styled like phone alerts).
+  banners: [
+    { app: "Messages",   icon: "💬", title: "Mom",        body: "are you doing that nothing thing again?? your cousin got a job AND a mortgage. call me." },
+    { app: "Instagram",  icon: "📸", title: "instagram",  body: "everyone you've ever had a crush on just posted. you're in here. doing this." },
+    { app: "Screen Time",icon: "⏳", title: "Screen Time", body: "You spent 100% of today staring at a wall that costs $1,200. Weekly report ready." },
+    { app: "Calendar",   icon: "📅", title: "Calendar",   body: "NOW: 'Do literally one thing.' You've snoozed this event 418 times." },
+    { app: "Your Bank",  icon: "🏦", title: "Chime",       body: "A withdrawal of ALL your remaining potential has cleared. New balance: insufficient." },
+    { app: "LinkedIn",   icon: "💼", title: "LinkedIn",   body: "Your network is thriving without you. 3 people you can't stand just got promoted." },
+    { app: "Find My",    icon: "📍", title: "Find My",     body: "This device hasn't moved in a medically concerning amount of time. Everything… okay in there?" },
+    { app: "Reminders",  icon: "✅", title: "Reminders",  body: "TODAY: text them back. (overdue 6 days) (they've moved on) (so should you, honestly)" },
+    { app: "Health",     icon: "❤️", title: "Health",      body: "Stand reminder: you have stood 0 times today. The activity ring is now just a circle of shame." },
+    { app: "Spotify",    icon: "🎧", title: "Spotify",     body: "Your Wrapped is ready: 412 hrs of sad songs, 1 self-help podcast you quit on minute two." },
+    { app: "Tinder",     icon: "🔥", title: "Tinder",      body: "0 new matches. The algorithm has stopped trying. It's seen enough. It's at peace. You should be too." },
+    { app: "Photos",     icon: "🖼️", title: "Photos",      body: "On This Day, 5 years ago: you also did nothing. A beautiful, unbroken streak of jack all." },
+    { app: "Weather",    icon: "🌧️", title: "Weather",     body: "100% chance you don't go outside. High of 'never,' low of 'maybe tomorrow' (a lie)." },
+    { app: "Uber",       icon: "🚗", title: "Uber",        body: "Your ride to 'getting your life together' was cancelled. The driver waited 11 years. Tip not added." },
+    { app: "Mail",       icon: "✉️", title: "Mail",        body: "Re: Re: Re: Re: your unrealized ambitions — 'just circling back on this one 🙂'" }
+  ],
+
+  batteryTaunts: [
+    "This game is doing that, by the way. Yes. Really.",
+    "Every second you sit here, somewhere an electron files for divorce.",
+    "Feel it getting warm? That warmth is guilt. And lithium.",
+    "Powering: absolutely nothing. Draining: everything you've got.",
+    "Your phone is begging you to lose so it can rest."
+  ],
+  batteryPunchline: "…relax. I can't actually touch your battery. But you believed me for a second — and THAT is the real drain.",
+
   // Floating fake buttons: {text, taunt, cls}
   fakeButtons: [
     { text: "CLICK HERE FOR FREE MONEY",                         taunt: "You pressed a button labeled FREE MONEY, on the internet, in a game called Do Nothing. We need to talk about your decisions.", cls: "gold" },
@@ -703,6 +767,8 @@ const ComedyEngine = (() => {
     phaseLine(phase) { return pick(Content.phase[phase], "phase" + phase); },
     bait() { return pick(Content.baits, "bait"); },
     takeover() { return pick(Content.takeovers, "takeover"); },
+    banner() { return pick(Content.banners, "banner"); },
+    batteryTaunt() { return pick(Content.batteryTaunts, "batt"); },
     fakeButton() {
       if (!used.fb) used.fb = new Set();
       if (used.fb.size >= Content.fakeButtons.length) used.fb.clear();
@@ -1259,6 +1325,97 @@ const Takeover = (() => {
 })();
 
 /* ---------------------------------------------------------------------------
+   Banner — fake phone-style notification banners + the battery-drain gag.
+   Non-blocking (stacks at top). Input stays armed, so reacting fails the run.
+   The battery gag is PURELY VISUAL — no real battery/system is touched.
+   --------------------------------------------------------------------------- */
+const Banner = (() => {
+  const layer = document.getElementById("banner-layer");
+  const live = new Set();
+  const intervals = new Set();
+  let batteryActive = false;
+
+  const now = () => { const d = new Date(); return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); };
+
+  function make(cls, iconTxt, appTxt, titleTxt, bodyTxt) {
+    const el = document.createElement("div");
+    el.className = "banner" + (cls ? " " + cls : "");
+    el.innerHTML =
+      `<div class="b-ico">${iconTxt}</div>
+       <div class="b-main">
+         <div class="b-top"><span class="b-app"></span><span class="b-time">${now()}</span></div>
+         <div class="b-title"></div>
+         <div class="b-body"></div>
+       </div>`;
+    el.querySelector(".b-app").textContent = appTxt;
+    el.querySelector(".b-title").textContent = titleTxt;
+    el.querySelector(".b-body").textContent = bodyTxt;
+    layer.appendChild(el);
+    live.add(el);
+    while (layer.children.length > 3) remove(layer.firstChild);
+    return el;
+  }
+
+  function remove(el) {
+    if (!el || !live.has(el)) return;
+    clearTimeout(el._t);
+    live.delete(el);
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 360);
+  }
+
+  return {
+    get batteryActive() { return batteryActive; },
+    show() {
+      const d = ComedyEngine.banner();
+      const el = make("", d.icon, d.app, d.title, d.body);
+      AudioManager.ping();
+      el._t = setTimeout(() => remove(el), 5000 + Math.random() * 2500);
+    },
+    async showBattery() {
+      if (batteryActive) return;
+      batteryActive = true;
+      let pct = 47;
+      try {
+        if (navigator.getBattery) {
+          const b = await navigator.getBattery();
+          if (b && typeof b.level === "number") pct = Math.max(8, Math.round(b.level * 100));
+        }
+      } catch (e) { /* no battery API (e.g. iOS Safari) — use the gag default */ }
+      // Always present as a dramatic "low battery" and drain quickly.
+      pct = Math.min(pct, 19 + Math.floor(Math.random() * 15)); // 19–33%
+
+      const el = make("battery", "🪫", "iPhone", `Low Battery — ${pct}%`, ComedyEngine.batteryTaunt());
+      AudioManager.battery();
+      const titleEl = el.querySelector(".b-title");
+      const bodyEl = el.querySelector(".b-body");
+
+      const iv = setInterval(() => {
+        pct -= Math.ceil(Math.random() * 4) + 2;
+        if (pct <= 1) {
+          pct = 1;
+          clearInterval(iv); intervals.delete(iv);
+          titleEl.textContent = "Battery — 1%";
+          bodyEl.textContent = Content.batteryPunchline;
+          AudioManager.anticlimax();
+          el._t = setTimeout(() => { remove(el); batteryActive = false; }, 4200);
+          return;
+        }
+        titleEl.textContent = `Low Battery — ${pct}%`;
+        bodyEl.textContent = ComedyEngine.batteryTaunt();
+      }, 520);
+      intervals.add(iv);
+    },
+    clear() {
+      intervals.forEach(clearInterval); intervals.clear();
+      live.forEach(el => { clearTimeout(el._t); el.remove(); });
+      live.clear();
+      batteryActive = false;
+    }
+  };
+})();
+
+/* ---------------------------------------------------------------------------
    ResultGenerator — contextual verdicts & ranks.
    --------------------------------------------------------------------------- */
 const ResultGenerator = (() => {
@@ -1402,6 +1559,8 @@ const Game = (() => {
   let nextButtonAt = 0;
   let nextBaitAt = 0;
   let nextTakeoverAt = 0;
+  let nextBannerAt = 0;
+  let nextBatteryAt = 0;
   let nextRandomAchvAt = 0;
   let milestoneIdx = 0;
   let curPhase = 1;
@@ -1436,6 +1595,8 @@ const Game = (() => {
     nextButtonAt = 22 + Math.random() * 6;  // first fake button ~22-28s
     nextBaitAt = 48 + Math.random() * 20;
     nextTakeoverAt = 50 + Math.random() * 18;   // first slam pop-up ~50-68s
+    nextBannerAt = 16 + Math.random() * 8;      // first notification banner ~16-24s
+    nextBatteryAt = 70 + Math.random() * 40;    // first battery gag ~70-110s
     nextRandomAchvAt = 55 + Math.random() * 40;
     fellForButton = null;
     api.eventFailLine = null;
@@ -1448,10 +1609,11 @@ const Game = (() => {
     EventScheduler.abort();
     FloatButtons.clear();
     Takeover.hide();
+    Banner.clear();
     AchievementManager.reset();
     ComedyEngine.reset();
     UIRenderer.setPhase(1);
-    document.body.classList.remove("glitch", "shake");
+    document.body.classList.remove("glitch", "shake", "invert");
     UIRenderer.showCountdown(true);
 
     const subs = [
@@ -1540,6 +1702,19 @@ const Game = (() => {
       nextTakeoverAt = sec + 24 + Math.random() * 22;
     }
 
+    // notification banners (phase >= 2, non-blocking, skip while a takeover owns the screen)
+    if (curPhase >= 2 && sec >= nextBannerAt && !Takeover.active) {
+      Banner.show();
+      const gap = Math.max(10, 24 - curPhase * 2);
+      nextBannerAt = sec + gap + Math.random() * 8;
+    }
+
+    // battery-drain gag (phase >= 4, rare) — purely visual, no real battery touched
+    if (curPhase >= 4 && sec >= nextBatteryAt && !Banner.batteryActive && !EventScheduler.active) {
+      Banner.showBattery();
+      nextBatteryAt = sec + 85 + Math.random() * 55;
+    }
+
     // fake floating buttons (phase >= 2)
     if (curPhase >= 2 && sec >= nextButtonAt) {
       FloatButtons.spawn();
@@ -1560,6 +1735,11 @@ const Game = (() => {
     // occasional chaos in late phases
     if (curPhase >= 5 && Math.random() < 0.0015) UIRenderer.glitch();
     if (curPhase >= 6 && Math.random() < 0.0008) UIRenderer.shake();
+    if (curPhase >= 6 && Math.random() < 0.0005) {
+      document.body.classList.add("invert");
+      AudioManager.zap();
+      setTimeout(() => document.body.classList.remove("invert"), 150);
+    }
 
     prevSec = sec;
     rafId = requestAnimationFrame(loop);
@@ -1584,6 +1764,7 @@ const Game = (() => {
     FloatButtons.clear();
     EventScheduler.abort();
     Takeover.hide();
+    Banner.clear();
     AudioManager.fail();
     UIRenderer.shake();
 
@@ -1623,7 +1804,7 @@ const Game = (() => {
     document.getElementById("copy-note").classList.remove("show");
 
     UIRenderer.setPhase(1);
-    document.body.classList.remove("glitch", "shake");
+    document.body.classList.remove("glitch", "shake", "invert");
     setTimeout(() => UIRenderer.showScreen("results"), 450);
   }
 
@@ -1633,7 +1814,9 @@ const Game = (() => {
     FloatButtons.clear();
     EventScheduler.abort();
     Takeover.hide();
+    Banner.clear();
     AchievementManager.reset();
+    document.body.classList.remove("glitch", "shake", "invert");
     UIRenderer.setPhase(1);
     UIRenderer.menuStats(StorageManager.best, StorageManager.attempts);
     UIRenderer.showScreen("menu");
