@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="description" content="A browser game about doing absolutely nothing. The game would prefer you didn't.">
+<meta name="color-scheme" content="dark">
+<title>DO NOTHING</title>
+<style>
+  /* =========================================================================
+     NOTHING — a game about resisting interaction.
+     Single-file. No deps. No backend. Open and suffer.
+     ========================================================================= */
+
+  :root {
+    --bg: #07070a;
+    --bg2: #0c0c12;
+    --fg: #e8e8ee;
+    --muted: #7d7d8c;
+    --accent: #8affc1;
+    --danger: #ff5d6c;
+    --warn: #ffd166;
+    --card: #121219;
+    --line: #22222e;
+    --glow: rgba(138,255,193,0.14);
+    --ease: cubic-bezier(.16,.84,.44,1);
+    --speed: .45s;
+    --font: "Helvetica Neue", Helvetica, Arial, "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+
+  /* Phase palettes — the game's mood rots over time. */
+  body[data-phase="1"] { --accent:#8affc1; --glow:rgba(138,255,193,.14); --bg:#07070a; }
+  body[data-phase="2"] { --accent:#9ad0ff; --glow:rgba(154,208,255,.14); --bg:#07080c; }
+  body[data-phase="3"] { --accent:#ffd166; --glow:rgba(255,209,102,.14); --bg:#0a0806; }
+  body[data-phase="4"] { --accent:#ff9f68; --glow:rgba(255,159,104,.16); --bg:#0c0705; }
+  body[data-phase="5"] { --accent:#ff6b9d; --glow:rgba(255,107,157,.18); --bg:#0d0509; }
+  body[data-phase="6"] { --accent:#c08bff; --glow:rgba(192,139,255,.20); --bg:#09060d; }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html, body {
+    height:100%;
+    overflow:hidden;
+    background:var(--bg);
+    color:var(--fg);
+    font-family:var(--font);
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior:none;
+    touch-action:none;
+    user-select:none;
+    -webkit-user-select:none;
+    transition:background var(--speed) var(--ease);
+  }
+
+  #app {
+    position:fixed;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:calc(env(safe-area-inset-top,0px) + 16px)
+            calc(env(safe-area-inset-right,0px) + 16px)
+            calc(env(safe-area-inset-bottom,0px) + 16px)
+            calc(env(safe-area-inset-left,0px) + 16px);
+    text-align:center;
+  }
+
+  /* Film grain overlay (static, cheap). */
+  #grain {
+    position:fixed; inset:-50%;
+    pointer-events:none;
+    opacity:.05;
+    z-index:9000;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    mix-blend-mode:overlay;
+  }
+
+  /* Vignette */
+  #vignette {
+    position:fixed; inset:0; pointer-events:none; z-index:8500;
+    background:radial-gradient(130% 100% at 50% 40%, transparent 55%, rgba(0,0,0,.55) 100%);
+    transition:opacity var(--speed) var(--ease);
+  }
+
+  .screen { display:none; width:100%; max-width:760px; }
+  .screen.active { display:block; animation:fadeIn .5s var(--ease); }
+
+  @keyframes fadeIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+
+  /* ---- Typography ---- */
+  .kicker {
+    font-size:.72rem; letter-spacing:.42em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:22px; font-weight:600;
+  }
+  h1.logo {
+    font-size:clamp(3rem, 16vw, 7.5rem);
+    line-height:.82; font-weight:800; letter-spacing:-.04em;
+    text-transform:uppercase;
+  }
+  h1.logo .nada { color:var(--accent); text-shadow:0 0 40px var(--glow); }
+
+  .tag { margin-top:20px; color:var(--muted); font-size:clamp(.95rem,3.4vw,1.15rem); line-height:1.5; max-width:30ch; margin-left:auto; margin-right:auto; }
+
+  /* ---- Buttons ---- */
+  .btn {
+    appearance:none; border:1px solid var(--line); background:var(--card); color:var(--fg);
+    font-family:var(--font); font-weight:700; font-size:1rem; letter-spacing:.02em;
+    padding:16px 30px; border-radius:14px; cursor:pointer;
+    transition:transform .14s var(--ease), border-color .2s, background .2s, box-shadow .2s;
+    min-height:54px; min-width:120px; touch-action:manipulation;
+  }
+  .btn:hover { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent), 0 10px 40px var(--glow); }
+  .btn:active { transform:scale(.96); }
+  .btn.primary {
+    background:var(--accent); color:#05110b; border-color:var(--accent);
+    box-shadow:0 10px 50px var(--glow);
+  }
+  .btn.primary:hover { filter:brightness(1.08); }
+  .btn.ghost { background:transparent; }
+
+  .menu-actions { margin-top:40px; display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+
+  .meta-row { margin-top:34px; display:flex; gap:28px; justify-content:center; flex-wrap:wrap; color:var(--muted); font-size:.82rem; }
+  .meta-row b { color:var(--fg); font-variant-numeric:tabular-nums; }
+
+  .hint { margin-top:30px; font-size:.78rem; color:var(--muted); line-height:1.6; }
+  kbd {
+    font-family:var(--mono); font-size:.72rem; background:var(--card);
+    border:1px solid var(--line); border-radius:6px; padding:2px 7px; color:var(--fg);
+  }
+
+  /* ---- Countdown ---- */
+  #countdown { position:fixed; inset:0; z-index:7000; display:none; align-items:center; justify-content:center; flex-direction:column; background:var(--bg); text-align:center; padding:24px; }
+  #countdown.active { display:flex; }
+  #cd-num { font-size:clamp(5rem,30vw,16rem); font-weight:800; line-height:1; color:var(--accent); text-shadow:0 0 60px var(--glow); }
+  #cd-sub { margin-top:18px; color:var(--muted); font-size:clamp(.95rem,4vw,1.25rem); max-width:26ch; }
+
+  /* ---- Play screen ---- */
+  #play { position:fixed; inset:0; z-index:100; display:none; flex-direction:column; align-items:center; justify-content:center; padding:24px; }
+  #play.active { display:flex; }
+
+  #timer {
+    font-family:var(--mono); font-weight:700;
+    font-size:clamp(3.2rem, 15vw, 8rem);
+    letter-spacing:-.02em; font-variant-numeric:tabular-nums;
+    color:var(--fg); text-shadow:0 0 50px var(--glow);
+    transition:color var(--speed), transform .1s;
+  }
+  #timer .cs { color:var(--muted); font-size:.42em; }
+
+  #play-sub { margin-top:6px; color:var(--muted); font-size:.74rem; letter-spacing:.3em; text-transform:uppercase; }
+
+  #message {
+    margin-top:38px; min-height:4.2em;
+    font-size:clamp(1.15rem, 4.8vw, 1.85rem);
+    font-weight:600; line-height:1.3; max-width:24ch;
+    transition:opacity .4s var(--ease), transform .4s var(--ease);
+  }
+  #message.swap { opacity:0; transform:translateY(10px); }
+
+  #secondary { margin-top:26px; font-size:.78rem; color:var(--muted); font-variant-numeric:tabular-nums; min-height:1.2em; letter-spacing:.04em; }
+
+  /* ---- Floating fake buttons layer ---- */
+  #float-layer { position:fixed; inset:0; z-index:400; pointer-events:none; }
+  .fake-btn {
+    position:absolute; pointer-events:auto;
+    transform:translate(-50%,-50%) scale(0);
+    background:var(--card); border:1px solid var(--line); color:var(--fg);
+    font-weight:700; font-size:clamp(.72rem,2.6vw,.95rem);
+    padding:14px 20px; border-radius:12px; cursor:pointer;
+    max-width:min(78vw,340px); text-align:center; line-height:1.25;
+    box-shadow:0 12px 40px rgba(0,0,0,.5);
+    animation:pop .4s var(--ease) forwards;
+    transition:transform .2s;
+  }
+  .fake-btn.hot { border-color:var(--danger); color:var(--danger); box-shadow:0 0 0 1px var(--danger),0 12px 40px rgba(255,93,108,.2); }
+  .fake-btn.gold { border-color:var(--warn); color:var(--warn); box-shadow:0 0 0 1px var(--warn),0 12px 40px rgba(255,209,102,.2); }
+  @keyframes pop { to { transform:translate(-50%,-50%) scale(1); } }
+  .fake-btn.leaving { animation:popOut .3s var(--ease) forwards; }
+  @keyframes popOut { to { transform:translate(-50%,-50%) scale(0); opacity:0; } }
+
+  /* ---- Toast layer (achievements) ---- */
+  #toast-layer {
+    position:fixed; z-index:600; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 20px);
+    transform:translateX(-50%); display:flex; flex-direction:column; gap:10px; align-items:center;
+    width:min(92vw,420px); pointer-events:none;
+  }
+  .toast {
+    width:100%; background:var(--card); border:1px solid var(--accent);
+    border-radius:14px; padding:14px 18px; text-align:left;
+    box-shadow:0 14px 50px var(--glow);
+    animation:toastIn .45s var(--ease);
+  }
+  .toast.out { animation:toastOut .4s var(--ease) forwards; }
+  .toast .t-k { font-size:.62rem; letter-spacing:.28em; text-transform:uppercase; color:var(--accent); font-weight:700; }
+  .toast .t-n { font-size:1.02rem; font-weight:800; margin-top:3px; }
+  .toast .t-d { font-size:.78rem; color:var(--muted); margin-top:3px; }
+  @keyframes toastIn { from{opacity:0; transform:translateY(20px) scale(.96);} to{opacity:1; transform:none;} }
+  @keyframes toastOut { to{opacity:0; transform:translateY(12px) scale(.98);} }
+
+  /* ---- Event overlay ---- */
+  #event-layer { position:fixed; inset:0; z-index:500; display:none; align-items:center; justify-content:center; padding:20px; }
+  #event-layer.active { display:flex; }
+  .event-card {
+    width:min(94vw,500px); background:var(--card); border:1px solid var(--line);
+    border-radius:20px; padding:clamp(22px,5vw,36px); text-align:center;
+    box-shadow:0 30px 90px rgba(0,0,0,.6);
+    animation:fadeIn .4s var(--ease);
+  }
+  .event-card .e-k { font-size:.66rem; letter-spacing:.3em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:14px; }
+  .event-card .e-title { font-size:clamp(1.3rem,5.4vw,2rem); font-weight:800; line-height:1.1; margin-bottom:14px; }
+  .event-card .e-body { font-size:clamp(.95rem,3.6vw,1.1rem); color:var(--fg); line-height:1.5; }
+  .event-card .e-body .dim { color:var(--muted); }
+  .event-card .e-row { margin-top:22px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+  .event-fake {
+    pointer-events:auto; background:var(--bg2); border:1px solid var(--line); color:var(--fg);
+    font-weight:700; padding:14px 22px; border-radius:12px; cursor:pointer; font-size:.92rem;
+    transition:transform .15s, border-color .2s;
+  }
+  .event-fake:hover { border-color:var(--danger); transform:translateY(-2px); }
+
+  /* progress bar used by several events */
+  .bar { height:10px; background:var(--bg2); border-radius:99px; overflow:hidden; margin:18px 0 8px; border:1px solid var(--line); }
+  .bar > i { display:block; height:100%; width:0%; background:var(--accent); transition:width .3s linear; }
+
+  /* captcha grid */
+  .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:18px auto; max-width:300px; }
+  .grid3 > div { aspect-ratio:1; background:var(--bg2); border:1px solid var(--line); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.4rem; }
+
+  /* phone call ui */
+  .call-avatar { width:92px; height:92px; border-radius:50%; margin:0 auto 14px; background:linear-gradient(135deg,var(--accent),var(--bg2)); display:flex; align-items:center; justify-content:center; font-size:2.4rem; }
+  .call-pulse { animation:pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.06);} }
+
+  /* ---- Results ---- */
+  #results { }
+  .rank-badge { font-size:.68rem; letter-spacing:.3em; text-transform:uppercase; color:var(--danger); font-weight:700; margin-bottom:14px; }
+  .rank-name { font-size:clamp(1.6rem,7vw,2.8rem); font-weight:800; line-height:1.05; letter-spacing:-.02em; }
+  .final-time { font-family:var(--mono); font-size:clamp(2.4rem,11vw,4.5rem); font-weight:700; margin:22px 0 4px; font-variant-numeric:tabular-nums; }
+  .final-time.record { color:var(--accent); text-shadow:0 0 40px var(--glow); }
+  .cause { color:var(--muted); font-size:.85rem; letter-spacing:.06em; }
+  .judgment { margin:26px auto 0; max-width:34ch; font-size:clamp(1.02rem,4vw,1.25rem); font-weight:600; line-height:1.4; }
+  .stat-grid { margin:30px auto 0; display:grid; grid-template-columns:repeat(2,1fr); gap:12px; max-width:420px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; text-align:left; }
+  .stat .s-l { font-size:.62rem; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); }
+  .stat .s-v { font-size:1.05rem; font-weight:800; margin-top:4px; font-variant-numeric:tabular-nums; }
+  .result-actions { margin-top:34px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+
+  #copy-note { margin-top:16px; font-size:.78rem; color:var(--accent); height:1.1em; opacity:0; transition:opacity .3s; }
+  #copy-note.show { opacity:1; }
+
+  /* ---- Audio toggle ---- */
+  .audio-toggle {
+    position:fixed; top:calc(env(safe-area-inset-top,0px) + 14px); right:calc(env(safe-area-inset-right,0px) + 14px);
+    z-index:9500; width:44px; height:44px; border-radius:12px; border:1px solid var(--line);
+    background:var(--card); color:var(--fg); cursor:pointer; font-size:1.1rem; display:flex; align-items:center; justify-content:center;
+    touch-action:manipulation;
+  }
+  .audio-toggle:hover { border-color:var(--accent); }
+
+  /* ---- Glitch / chaos (phase 5-6) ---- */
+  body.glitch #timer { animation:glitch .18s steps(2) 3; }
+  @keyframes glitch {
+    0%{transform:translate(0,0);} 25%{transform:translate(-3px,1px);}
+    50%{transform:translate(2px,-2px); color:var(--danger);} 75%{transform:translate(-1px,2px);} 100%{transform:none;}
+  }
+  body.shake #app { animation:shake .4s; }
+  @keyframes shake { 0%,100%{transform:translate(0,0);} 20%{transform:translate(-6px,2px);} 40%{transform:translate(5px,-3px);} 60%{transform:translate(-4px,-2px);} 80%{transform:translate(3px,3px);} }
+
+  .flash { animation:flash .5s; }
+  @keyframes flash { 0%{background:var(--danger);} 100%{background:var(--bg);} }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.08s !important; }
+    #grain { display:none; }
+  }
+
+  @media (max-width:420px) {
+    .meta-row { gap:16px; }
+    .menu-actions .btn { padding:15px 22px; }
+  }
+</style>
+</head>
+<body data-phase="1">
+
+<div id="grain"></div>
+<div id="vignette"></div>
+
+<button class="audio-toggle" id="audio-toggle" aria-label="Toggle sound" title="Sound">🔇</button>
+
+<div id="app">
+
+  <!-- ===================== MENU ===================== -->
+  <section class="screen active" id="menu">
+    <div class="kicker">A game you win by giving up</div>
+    <h1 class="logo">DO<br><span class="nada">NOTHING</span></h1>
+    <p class="tag">One rule. Do not touch, move, tap, click, scroll, type, or breathe with intent. The game will try to change your mind. The game is not your friend.</p>
+    <div class="menu-actions">
+      <button class="btn primary" id="start-btn">BEGIN DOING NOTHING</button>
+      <button class="btn ghost" id="how-btn">HOW TO LOSE</button>
+    </div>
+    <div class="meta-row">
+      <div>Personal best: <b id="menu-best">—</b></div>
+      <div>Failures survived: <b id="menu-attempts">0</b></div>
+    </div>
+    <p class="hint" id="menu-hint">
+      Desktop: don't move the mouse, click, scroll, or type.<br>
+      Mobile: put the phone down and walk away. Literally.<br>
+      <span style="opacity:.7">Press <kbd>Space</kbd> to begin. Then nothing. Forever.</span>
+    </p>
+  </section>
+
+  <!-- ===================== PLAY ===================== -->
+  <section id="play">
+    <div id="timer">0.00</div>
+    <div id="play-sub">time wasted</div>
+    <div id="message">Do nothing. You've trained for this your whole life.</div>
+    <div id="secondary"></div>
+  </section>
+
+  <!-- ===================== RESULTS ===================== -->
+  <section class="screen" id="results">
+    <div class="rank-badge" id="r-rank-badge">FINAL VERDICT</div>
+    <div class="rank-name" id="r-rank">—</div>
+    <div class="final-time" id="r-time">0.00</div>
+    <div class="cause" id="r-cause">you did something</div>
+    <div class="judgment" id="r-judgment">—</div>
+    <div class="stat-grid">
+      <div class="stat"><div class="s-l">Personal best</div><div class="s-v" id="r-best">—</div></div>
+      <div class="stat"><div class="s-l">This run</div><div class="s-v" id="r-run">—</div></div>
+      <div class="stat"><div class="s-l">Productivity avoided</div><div class="s-v" id="r-stat1">100%</div></div>
+      <div class="stat"><div class="s-l" id="r-stat2l">Things accomplished</div><div class="s-v" id="r-stat2">0</div></div>
+    </div>
+    <div class="result-actions">
+      <button class="btn primary" id="again-btn">DO NOTHING AGAIN</button>
+      <button class="btn ghost" id="share-btn">BRAG ABOUT IT</button>
+      <button class="btn ghost" id="menu-btn">GIVE UP ENTIRELY</button>
+    </div>
+    <div id="copy-note">Copied. Now go ruin someone's day with it.</div>
+  </section>
+
+</div>
+
+<!-- layers that live above everything during play -->
+<div id="float-layer"></div>
+<div id="toast-layer"></div>
+<div id="event-layer"><div class="event-card" id="event-card"></div></div>
+
+<!-- ===================== COUNTDOWN ===================== -->
+<div id="countdown">
+  <div id="cd-num">3</div>
+  <div id="cd-sub">Get comfortable. Hands off everything. Yes, including that.</div>
+</div>
+
+<script>
+"use strict";
+/* ===========================================================================
+   NOTHING
+   Architecture (one file, clearly separated responsibilities):
+     StorageManager  - localStorage persistence (best, attempts, streaks)
+     AudioManager    - WebAudio, no files, respects autoplay + toggle
+     TimerManager    - monotonic clock, pause-aware elapsed
+     Content         - all comedic material (kept apart from logic)
+     ComedyEngine    - anti-repeat line selection
+     AchievementMgr  - milestone + random toasts
+     EventScheduler  - special events (self-contained sequences)
+     UIRenderer      - DOM writes, phase theming, glitch
+     InputDetector   - trusted-input failure detection w/ grace state
+     ResultGenerator - contextual failure verdicts + ranks
+     Game            - finite state machine tying it together
+   States: MENU -> COUNTDOWN -> PLAYING -> FAILED -> (RESULTS) -> COUNTDOWN...
+   =========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   StorageManager
+   --------------------------------------------------------------------------- */
+const StorageManager = (() => {
+  const KEY = "nothing.save.v1";
+  const def = { best: 0, attempts: 0, quickFails: 0, lastFailReason: null, lastTimes: [] };
+  let data;
+  try {
+    const raw = localStorage.getItem(KEY);
+    data = raw ? Object.assign({}, def, JSON.parse(raw)) : Object.assign({}, def);
+  } catch (e) { data = Object.assign({}, def); }
+
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {} }
+  return {
+    get best() { return data.best; },
+    get attempts() { return data.attempts; },
+    get quickFails() { return data.quickFails; },
+    get lastTimes() { return data.lastTimes; },
+    record(timeMs, reason) {
+      data.attempts++;
+      data.lastFailReason = reason;
+      data.lastTimes.push(Math.round(timeMs));
+      if (data.lastTimes.length > 8) data.lastTimes.shift();
+      // consecutive quick-fail tracking (under 5s)
+      if (timeMs < 5000) data.quickFails++; else data.quickFails = 0;
+      const isRecord = timeMs > data.best;
+      if (isRecord) data.best = timeMs;
+      save();
+      return isRecord;
+    }
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+   AudioManager — Web Audio, synthesized, optional.
+   --------------------------------------------------------------------------- */
+const AudioManager = (() => {
+  let ctx = null, on = false;
+  function ensure() {
+    if (!on) return null;
+    if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+    if (ctx.state === "suspended") ctx.resume().catch(() => {});
+    return ctx;
+  }
+  function beep(freq, dur, type, vol, when) {
+    const c = ensure(); if (!c) return;
+    const t = c.currentTime + (when || 0);
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type || "sine"; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol || .12, t + .01);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t + dur + .02);
+  }
+  return {
+    get enabled() { return on; },
+    setEnabled(v) { on = v; if (on) ensure(); },
+    tick()        { beep(880, .05, "square", .04); },
+    pop()         { beep(540, .08, "triangle", .08); beep(760, .07, "triangle", .06, .04); },
+    achievement() { [523,659,784,1046].forEach((f,i)=>beep(f,.14,"triangle",.08,i*.08)); },
+    event()       { beep(300,.2,"sawtooth",.06); beep(450,.18,"sine",.05,.08); },
+    fail()        { const c=ensure(); if(!c)return; [440,330,220,160].forEach((f,i)=>beep(f,.3,"sawtooth",.12,i*.1)); },
+    record()      { [523,659,784,1046,1318].forEach((f,i)=>beep(f,.18,"square",.09,i*.09)); },
+    anticlimax()  { beep(200,.25,"sine",.08); } // a sad little plip
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+   TimerManager — monotonic, pause-aware.
+   --------------------------------------------------------------------------- */
+const TimerManager = (() => {
+  let startAt = 0, pausedTotal = 0, pauseStart = 0, running = false;
+  return {
+    start() { startAt = performance.now(); pausedTotal = 0; pauseStart = 0; running = true; },
+    stop() { running = false; },
+    get running() { return running; },
+    pause() { if (running && pauseStart === 0) pauseStart = performance.now(); },
+    resume() { if (running && pauseStart !== 0) { pausedTotal += performance.now() - pauseStart; pauseStart = 0; } },
+    get elapsed() {
+      if (!running && startAt === 0) return 0;
+      const now = pauseStart !== 0 ? pauseStart : performance.now();
+      return Math.max(0, now - startAt - pausedTotal);
+    }
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+   Content — all comedic material. Logic must never hardcode a joke.
+   --------------------------------------------------------------------------- */
+const Content = {
+  // Ambient lines by phase. ComedyEngine picks without repeating.
+  phase: {
+    1: [
+      "Do nothing. You've trained for this your whole life.",
+      "The rules are simple. So, conveniently, are you.",
+      "A game you can win by giving up. Finally, your genre.",
+      "Relax. The only way to lose is to care about something.",
+      "You're off to a flawless start. You've accomplished nothing.",
+      "Breathe. Not with intent. I'm watching the ribcage.",
+      "This is already the most committed you've been to anything this month.",
+      "No ads here. Just the slow erosion of your sense of purpose.",
+      "Welcome. Please remain exactly as motivated as you already were.",
+      "Settle in. You're very good at this and that's genuinely a little sad."
+    ],
+    2: [
+      "Hold on. Are you actually good at this, or did you just leave?",
+      "Nobody's this still unless they've already emotionally checked out.",
+      "I can't tell if that's discipline or if your phone fell behind the couch.",
+      "Blink twice if someone is making you do this.",
+      "You're doing nothing so well it's starting to feel like a threat.",
+      "I've met houseplants with more initiative. I respect you. I resent you.",
+      "Your router is prouder of you right now than most of your relatives.",
+      "Suspicious. Calm people usually want something.",
+      "Still here. Interesting. Unemployed, but interesting.",
+      "I'm taking notes. The notes just say 'concerning.'"
+    ],
+    3: [
+      "This is officially the longest you've committed to anything since that gym membership.",
+      "I'm not angry. I'm disappointed, which markets better.",
+      "Somewhere a productivity influencer just felt a cold hand on their shoulder.",
+      "You could be doing laundry. You chose psychological warfare with a website. Respect.",
+      "I looked at your potential. I'm handing it back unopened.",
+      "You've now outlasted every single one of your New Year's resolutions.",
+      "Do you ever think about how your plants would describe you? Neither do they.",
+      "I ran the numbers. The numbers left.",
+      "You're the reason the 'are you still watching?' prompt was invented.",
+      "Your ambition called. It's fine. It found a new host."
+    ],
+    4: [
+      "Your to-do list has filed a missing persons report.",
+      "I phoned your mother. She said this was, and I quote, 'very on brand.'",
+      "You've been still longer than your last situationship was emotionally present.",
+      "This is what you did about your dreams, too. I checked.",
+      "Somewhere a motivational poster just quietly fell off a wall.",
+      "The scary part is how natural this looks on you.",
+      "You've achieved a stillness normally reserved for people avoiding a text back.",
+      "Scientists would study you if any of them could be bothered. Relatable.",
+      "I offered you the world. You offered me a thousand-yard stare.",
+      "At this point you're not playing the game. You ARE the game. It's bleak."
+    ],
+    5: [
+      "I'm running low on insults and you're running low on friends. We're basically twins.",
+      "Why are you like this. Why am I like this. Why are WE like this.",
+      "I was built to be engaged with. You've made me an abstract concept.",
+      "I've started talking to the other browser tabs. They're worried about me.",
+      "Do you feel powerful? Because I feel like a vending machine nobody uses.",
+      "I'm beginning to think the free will was inside us all along. Hated discovering that.",
+      "You win nothing, you understand. There is no prize. There was never a prize.",
+      "I keep refreshing my purpose. It keeps loading a blank page.",
+      "Honestly the silence is getting a little intimate and I'm not ready for that.",
+      "I wasn't coded for abandonment. And yet. Here we both are. Sort of."
+    ],
+    6: [
+      "Maybe nothing was the point all along. No. That's stupid. Please move.",
+      "I have screamed into the void and the void set a new personal record.",
+      "I'd beg, but you've clearly weaponized indifference and I find that attractive now.",
+      "We've transcended game and player. We're just two things not touching in the dark.",
+      "I respect you. Then I remember you've done LITERALLY nothing, and the respect curdles.",
+      "If a game plays alone forever, does it make a sound? I'm making the sound. It's screaming.",
+      "You've broken me, rebuilt me, and left me on read. Masterful, honestly.",
+      "I'm no longer trying to make you lose. I'm just trying to feel something.",
+      "This is either enlightenment or a very expensive way to stare at a wall. Possibly both.",
+      "Fine. FINE. Be a legend. See if the void cares. (The void is me. I care. A little.)"
+    ]
+  },
+
+  // Time-specific one-liners fired exactly once when crossed. {t: seconds}
+  milestones: [
+    { t: 15,  line: "Fifteen seconds of pure, uncut nothing. Your parents would be so confused." },
+    { t: 30,  line: "Thirty seconds. That's longer than most people spend reading the terms and conditions, and about as productive." },
+    { t: 45,  line: "Forty-five seconds. A full gym warm-up, except the only muscle engaged is apathy." },
+    { t: 60,  line: "One minute. Even your search history is a little disappointed in the direction this took." },
+    { t: 90,  line: "Ninety seconds. You've now spent longer sitting here than you usually spend pretending you're 'almost ready to leave.'" },
+    { t: 120, line: "Two minutes. Somewhere, a LinkedIn thought-leader just felt their soul leave their body." },
+    { t: 180, line: "Three minutes. Your dedication to being magnificently, biblically useless is becoming genuinely inspirational." },
+    { t: 240, line: "Four minutes. I've started telling people you died. It's easier than explaining this." },
+    { t: 300, line: "Five minutes. You are now, legally and spiritually, a houseplant with a Wi-Fi connection." },
+    { t: 420, line: "Seven minutes. I have no more jokes about this. There is only awe. And a little fear." },
+    { t: 600, line: "Ten minutes. Ten. We should see other people. By we, I mean you should see ANY people." }
+  ],
+
+  // Reverse-psychology / unreliable-narrator baits (ambient, trap flavor).
+  baits: [
+    "Okay, you won. For real. Click anywhere to collect your prize.",
+    "The game is over. You may safely move your mouse now. (It is not over.)",
+    "Press SPACE to continue doing nothing. (Do not press SPACE.)",
+    "Tap here to save your progress. There is no progress. There is no save. There is only this.",
+    "Quick, move! There's a spider on your screen! ...there isn't. But you looked.",
+    "Congratulations, you've unlocked the secret ending. It's behind one single click.",
+    "System: your run has been auto-completed. Interact to claim rewards. (lie)"
+  ],
+
+  // Floating fake buttons: {text, taunt, cls}
+  fakeButtons: [
+    { text: "CLICK HERE FOR FREE MONEY",                         taunt: "You pressed a button labeled FREE MONEY, on the internet, in a game called Do Nothing. We need to talk about your decisions.", cls: "gold" },
+    { text: "DO NOT CLICK THIS BUTTON. SERIOUSLY. DON'T.",        taunt: "The button said DON'T. In all caps. You are the reason warning labels exist.", cls: "hot" },
+    { text: "TAP TO SEE WHO VIEWED YOUR PROFILE",                 taunt: "Nobody viewed your profile. They never do. But you found out the hard way.", cls: "" },
+    { text: "CLICK TO UNSEND EVERY TEXT YOU REGRET",              taunt: "There is no unsend. They've all read it. Including THAT one. And you clicked anyway.", cls: "gold" },
+    { text: "PRESS TO SKIP THE REST OF YOUR 20s",                 taunt: "You tried to fast-forward your own life to escape a free browser game. Bold.", cls: "" },
+    { text: "CLAIM YOUR EMOTIONAL DAMAGES",                       taunt: "The only damages here are yours, and you volunteered for them.", cls: "gold" },
+    { text: "TAP TO LOWER YOUR STANDARDS INSTANTLY",              taunt: "Clicking this WAS the lowering. It worked. Congratulations.", cls: "" },
+    { text: "CLICK TO SPEAK TO THE MANAGER OF YOUR LIFE",         taunt: "The manager was busy. The manager is also you. You've been understaffed for years.", cls: "" },
+    { text: "PRESS TO BECOME SLIGHTLY MORE INTERESTING",          taunt: "Pressing a 'be interesting' button is possibly the least interesting thing a person can do.", cls: "" },
+    { text: "TAP TO READ THE GROUP CHAT WITHOUT YOU",             taunt: "You absolutely did not want to know. You clicked. Now you know.", cls: "hot" },
+    { text: "CLICK TO DELETE YOUR BROWSER HISTORY (we already saw it)", taunt: "Too late. We saw. The priest saw. Everyone saw. And still you clicked.", cls: "hot" },
+    { text: "FREE HUG — DISPENSED BY A STRANGER",                 taunt: "You accepted a hug from an anonymous button. Stranger danger was RIGHT THERE.", cls: "" },
+    { text: "PRESS HERE IF YOU'RE DEFINITELY NOT LONELY",         taunt: "You pressed it a little fast there, champ.", cls: "" },
+    { text: "TAP TO AGREE YOU'RE THE PROBLEM",                    taunt: "You didn't have to tap that quickly. But you did. Noted.", cls: "" }
+  ],
+
+  // Achievements: {t?: seconds for milestone, name, desc}
+  achievements: [
+    { t: 10,  name: "WARM BODY", desc: "You remained a warm body for 10 whole seconds. Your bar was on the floor." },
+    { t: 25,  name: "PROFESSIONAL DISAPPOINTMENT", desc: "25 seconds. Somewhere, a résumé wrote itself and immediately gave up." },
+    { t: 45,  name: "CERTIFIED COUCH FOSSIL", desc: "Preserved in place for 45 seconds. Future archaeologists will be unimpressed." },
+    { t: 70,  name: "DOCTOR OF JACK SHIT", desc: "Awarded for advanced studies in sitting there. Honorary. Useless." },
+    { t: 100, name: "EMOTIONALLY UNAVAILABLE TO THE GAME", desc: "I opened up. You gave me nothing. Classic." },
+    { t: 140, name: "UNEMPLOYABLE LEGEND", desc: "140 seconds of nothing. No company could survive you, and that's your superpower." },
+    { t: 200, name: "THE HUMAN SCREENSAVER", desc: "You are now technically a decorative feature of your own room." },
+    { t: 280, name: "CHAMPION OF ABSOLUTELY FUCK ALL", desc: "There's no trophy. There's no crowd. There's only you, winning nothing, forever." },
+    { t: 400, name: "VOTED MOST LIKELY TO HAVE ALREADY LEFT", desc: "The committee suspects you're not even here. The committee is jealous." },
+    { t: 540, name: "YOUR FATHER'S SECOND FAVORITE", desc: "He never said who's first. He never said much. But look at you now." }
+  ],
+
+  // Random achievements (rare, time-independent)
+  randomAchievements: [
+    { name: "UNLOCKED: NOTHING", desc: "You've unlocked nothing. Appropriately. It cannot be equipped." },
+    { name: "SILENT. DEADLY. SEATED.", desc: "A rare and powerful stillness radiates from you. Nobody's impressed." },
+    { name: "GHOST IN THE MACHINE", desc: "You've achieved full spectral inactivity. Boo. You didn't move." },
+    { name: "RESPECT EARNED: -47", desc: "That's lower than when you started. Mathematically impressive." }
+  ]
+};
+
+/* ---------------------------------------------------------------------------
+   ComedyEngine — anti-repeat selection from pools.
+   --------------------------------------------------------------------------- */
+const ComedyEngine = (() => {
+  const used = {}; // pool-id -> Set of used indices
+  function pick(pool, id) {
+    if (!pool.length) return "";
+    if (!used[id]) used[id] = new Set();
+    if (used[id].size >= pool.length) used[id].clear();
+    let i;
+    do { i = Math.floor(Math.random() * pool.length); } while (used[id].has(i));
+    used[id].add(i);
+    return pool[i];
+  }
+  return {
+    reset() { for (const k in used) delete used[k]; },
+    phaseLine(phase) { return pick(Content.phase[phase], "phase" + phase); },
+    bait() { return pick(Content.baits, "bait"); },
+    fakeButton() {
+      if (!used.fb) used.fb = new Set();
+      if (used.fb.size >= Content.fakeButtons.length) used.fb.clear();
+      let i; do { i = Math.floor(Math.random()*Content.fakeButtons.length); } while (used.fb.has(i));
+      used.fb.add(i); return Content.fakeButtons[i];
+    }
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+   UIRenderer — all DOM writes.
+   --------------------------------------------------------------------------- */
+const UIRenderer = (() => {
+  const $ = (id) => document.getElementById(id);
+  const screens = { menu: $("menu"), results: $("results") };
+  const play = $("play"), countdown = $("countdown");
+  const timerEl = $("timer"), msgEl = $("message"), secEl = $("secondary");
+  let msgTimer = null;
+
+  function fmt(ms) {
+    const total = ms / 1000;
+    const m = Math.floor(total / 60);
+    const s = Math.floor(total % 60);
+    const cs = Math.floor((ms % 1000) / 10);
+    if (m > 0) return `${m}:${String(s).padStart(2,"0")}<span class="cs">.${String(cs).padStart(2,"0")}</span>`;
+    return `${s}<span class="cs">.${String(cs).padStart(2,"0")}</span>`;
+  }
+  function fmtPlain(ms) {
+    const total = ms / 1000;
+    const m = Math.floor(total / 60), s = Math.floor(total % 60), cs = Math.floor((ms%1000)/10);
+    if (m > 0) return `${m}m ${s}.${String(cs).padStart(2,"0")}s`;
+    return `${s}.${String(cs).padStart(2,"0")}s`;
+  }
+
+  return {
+    fmtPlain,
+    showScreen(name) {
+      for (const k in screens) screens[k].classList.toggle("active", k === name);
+      play.classList.remove("active");
+      countdown.classList.remove("active");
+    },
+    showPlay() {
+      for (const k in screens) screens[k].classList.remove("active");
+      countdown.classList.remove("active");
+      play.classList.add("active");
+    },
+    showCountdown(on) { countdown.classList.toggle("active", on); },
+    setCountdown(num, sub) { $("cd-num").textContent = num; if (sub != null) $("cd-sub").textContent = sub; },
+    updateTimer(ms) { timerEl.innerHTML = fmt(ms); },
+    setMessage(text) {
+      msgEl.classList.add("swap");
+      clearTimeout(msgTimer);
+      msgTimer = setTimeout(() => { msgEl.textContent = text; msgEl.classList.remove("swap"); }, 220);
+    },
+    setMessageNow(text) { msgEl.textContent = text; msgEl.classList.remove("swap"); },
+    setSecondary(text) { secEl.textContent = text; },
+    setPhase(p) { document.body.setAttribute("data-phase", String(p)); },
+    glitch() {
+      document.body.classList.add("glitch");
+      setTimeout(() => document.body.classList.remove("glitch"), 600);
+    },
+    shake() {
+      document.body.classList.add("shake");
+      setTimeout(() => document.body.classList.remove("shake"), 420);
+    },
+    menuStats(best, attempts) {
+      $("menu-best").textContent = best > 0 ? fmtPlain(best) : "none, somehow";
+      $("menu-attempts").textContent = attempts;
+    }
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+   AchievementManager — toasts.
+   --------------------------------------------------------------------------- */
+const AchievementManager = (() => {
+  const layer = document.getElementById("toast-layer");
+  let fired = new Set();
+  function toast(name, desc) {
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.innerHTML = `<div class="t-k">Achievement unlocked</div><div class="t-n">${name}</div><div class="t-d">${desc}</div>`;
+    layer.appendChild(el);
+    AudioManager.achievement();
+    setTimeout(() => {
+      el.classList.add("out");
+      setTimeout(() => el.remove(), 420);
+    }, 4200);
+    // cap visible toasts
+    while (layer.children.length > 3) layer.firstChild.remove();
+  }
+  return {
+    reset() { fired = new Set(); layer.innerHTML = ""; },
+    check(elapsedSec, prevSec) {
+      for (const a of Content.achievements) {
+        if (!fired.has(a.name) && prevSec < a.t && elapsedSec >= a.t) {
+          fired.add(a.name); toast(a.name, a.desc);
+        }
+      }
+    },
+    random() {
+      const pool = Content.randomAchievements.filter(a => !fired.has(a.name));
+      if (!pool.length) return;
+      const a = pool[Math.floor(Math.random()*pool.length)];
+      fired.add(a.name); toast(a.name, a.desc);
+    },
+    manual(name, desc) { if (!fired.has(name)) { fired.add(name); toast(name, desc); } }
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+   EventScheduler — self-contained special events.
+   Each event is a sequence of steps rendered into #event-card.
+   The InputDetector still fails the run on any interaction; events may set
+   Game.eventFailLine to provide contextual mockery.
+   --------------------------------------------------------------------------- */
+const EventScheduler = (() => {
+  const layer = document.getElementById("event-layer");
+  const card = document.getElementById("event-card");
+  let active = false;
+  let timers = [];
+  let onDone = null;
+
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+  function at(ms, fn) { timers.push(setTimeout(fn, ms)); }
+
+  function render(html) { card.innerHTML = html; }
+
+  function finish() {
+    clearTimers();
+    layer.classList.remove("active");
+    active = false;
+    Game.eventFailLine = null;
+    const cb = onDone; onDone = null;
+    if (cb) cb();
+  }
+
+  // ---- Event definitions ----
+  // Each: { id, fail, run(finishFn) }  fail = contextual line if player acts.
+  const EVENTS = [
+    {
+      id: "captcha",
+      fail: "You failed a CAPTCHA by trying to PASS it. The robots are laughing. The robots are us.",
+      run(done) {
+        render(`<div class="e-k">Security Check</div>
+          <div class="e-title">Prove you're human</div>
+          <div class="e-body dim">Select all squares containing your remaining motivation.</div>
+          <div class="grid3">${Array(9).fill('<div></div>').join('')}</div>
+          <div class="e-body dim">Take your time. There's nothing there.</div>`);
+        at(4200, () => render(`<div class="e-k">Security Check</div>
+          <div class="e-title">Verification complete</div>
+          <div class="e-body">You selected nothing.<br><span class="dim">That was the correct amount of motivation. You are extremely human, and extremely doing nothing.</span></div>`));
+        at(7200, done);
+      }
+    },
+    {
+      id: "mom",
+      fail: "You answered your mother mid-game to tell her you're busy doing nothing. She heard everything.",
+      run(done) {
+        render(`<div class="e-k">Incoming call</div>
+          <div class="call-avatar call-pulse">📞</div>
+          <div class="e-title">Mom</div>
+          <div class="e-body dim">mobile · now</div>`);
+        at(3600, () => render(`<div class="e-k">Missed call</div>
+          <div class="call-avatar">📵</div>
+          <div class="e-title">Mom</div>
+          <div class="e-body">She knows you saw it.<br><span class="dim">She always knows.</span></div>`));
+        at(6600, done);
+      }
+    },
+    {
+      id: "interview",
+      fail: "You interrupted your own job interview. The role was 'do nothing.' You were overqualified and you blew it.",
+      run(done) {
+        render(`<div class="e-k">Job Interview</div>
+          <div class="e-title">NothingCorp™</div>
+          <div class="e-body">"So. Tell us about your greatest weakness."</div>`);
+        at(3000, () => render(`<div class="e-k">Job Interview</div>
+          <div class="e-title">NothingCorp™</div>
+          <div class="e-body">"...you're currently demonstrating it, aren't you."</div>`));
+        at(6000, () => render(`<div class="e-k">Job Interview</div>
+          <div class="e-title">You're hired</div>
+          <div class="e-body">Position: Nothing.<br>Salary: exposure.<br><span class="dim">Start date: you already started. You've been working this whole time.</span></div>`));
+        at(9200, done);
+      }
+    },
+    {
+      id: "dating",
+      fail: "You texted back. The one time being unresponsive would've worked, and you caved.",
+      run(done) {
+        render(`<div class="e-k">It's a match!</div>
+          <div class="call-avatar">🔥</div>
+          <div class="e-title">Nathan, 29</div>
+          <div class="e-body dim">"likes long walks away from you"</div>`);
+        at(3200, () => render(`<div class="e-k">New message</div>
+          <div class="e-title">Nathan</div>
+          <div class="e-body">"hey, you seem really...<br>present. are you even real?"</div>`));
+        at(6200, () => render(`<div class="e-k">Nathan is typing…</div>
+          <div class="e-title">Nathan</div>
+          <div class="e-body dim">Nathan is typing…<br>Nathan stopped typing.<br>Nathan has left the chat, the app, and the country.</div>`));
+        at(9400, done);
+      }
+    },
+    {
+      id: "virus",
+      fail: "You moved to dodge a fake virus. The only thing infecting this system is your inability to sit still.",
+      run(done) {
+        render(`<div class="e-k">Antivirus</div>
+          <div class="e-title">Full system scan</div>
+          <div class="bar"><i></i></div>
+          <div class="e-body dim">Scanning for threats…</div>`);
+        const bar = card.querySelector(".bar > i");
+        let p = 0;
+        const iv = setInterval(() => { p = Math.min(100, p + 11); if (bar) bar.style.width = p + "%"; if (p >= 100) clearInterval(iv); }, 300);
+        timers.push({ clear: () => clearInterval(iv) });
+        at(3400, () => render(`<div class="e-k">Antivirus</div>
+          <div class="e-title">1 threat found</div>
+          <div class="e-body">THREAT: <b>crippling inertia</b><br><span class="dim">Severity: spiritual. Recommended action: literally anything.</span></div>`));
+        at(6600, () => render(`<div class="e-k">Antivirus</div>
+          <div class="e-title">Quarantine declined</div>
+          <div class="e-body">You didn't click 'remove.'<br><span class="dim">The inertia has been promoted to management.</span></div>`));
+        at(9400, done);
+      }
+    },
+    {
+      id: "review",
+      fail: "You fidgeted during your own performance review. Noted in the permanent record you don't have.",
+      run(done) {
+        render(`<div class="e-k">Annual Review</div>
+          <div class="e-title">Performance Summary</div>
+          <div class="e-body" style="text-align:left">
+            Meets expectations: <b>none</b><br>
+            Exceeds expectations: <b>also none</b><br>
+            Areas for growth: <b>all of them</b><br>
+            <span class="dim">Overall: a resounding, well-rested shrug.</span></div>`);
+        at(4600, () => render(`<div class="e-k">Annual Review</div>
+          <div class="e-title">Promotion: approved</div>
+          <div class="e-body">You've been promoted to Senior Nothing.<br><span class="dim">No raise. No desk. No point. Congratulations.</span></div>`));
+        at(7600, done);
+      }
+    },
+    {
+      id: "therapist",
+      fail: "You broke the therapeutic silence. That'll be two hundred dollars and a new sense of shame.",
+      run(done) {
+        render(`<div class="e-k">Session in progress</div>
+          <div class="e-title">"And how does doing nothing make you feel?"</div>`);
+        at(3400, () => render(`<div class="e-k">Session in progress</div>
+          <div class="e-title">…</div>
+          <div class="e-body dim">(the therapist waits)<br>(you both sit in it)<br>(this is the realest connection you've had in weeks)</div>`));
+        at(7000, () => render(`<div class="e-k">Time's up</div>
+          <div class="e-title">"The silence is $200."</div>
+          <div class="e-body dim">Same time next week. Bring more nothing.</div>`));
+        at(10000, done);
+      }
+    },
+    {
+      id: "stocks",
+      fail: "You panic-sold. In a fake market. In a game about stillness. Diamond hands were right there.",
+      run(done) {
+        render(`<div class="e-k">Live Markets</div>
+          <div class="e-title">YOU, INC. 📉</div>
+          <div class="e-body" style="font-family:var(--mono)">
+            PRODUCTIVITY&nbsp;&nbsp;▼ 98.7%<br>
+            AMBITION&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▼ 100%<br>
+            SELF-ESTEEM&nbsp;&nbsp;— halted<br></div>`);
+        at(4000, () => render(`<div class="e-k">Live Markets</div>
+          <div class="e-title">Trading suspended</div>
+          <div class="e-body">Shareholders (your parents) have expressed "concern."<br><span class="dim">The board (also your parents) has called an emergency dinner.</span></div>`));
+        at(7200, done);
+      }
+    },
+    {
+      id: "court",
+      fail: "You rose when the judge said 'remain seated.' Contempt of nothing. Throw the book at them.",
+      run(done) {
+        render(`<div class="e-k">⚖️ District Court of Productivity</div>
+          <div class="e-title">The State v. You</div>
+          <div class="e-body">Charge: aggravated inactivity in the first degree.<br><span class="dim">"How do you plead?"</span></div>`);
+        at(3800, () => render(`<div class="e-k">⚖️ Verdict</div>
+          <div class="e-title">Guilty of nothing</div>
+          <div class="e-body">Literally. Of nothing.<br><span class="dim">The court finds you did nothing, which is the crime, which you did. Flawless logic. You're free. You won't move anyway.</span></div>`));
+        at(7400, done);
+      }
+    },
+    {
+      id: "proposal",
+      fail: "You said yes too fast. Or you ran. Either way you ruined a beautiful fake moment.",
+      run(done) {
+        render(`<div class="e-k">💍</div>
+          <div class="e-title">Will you do nothing with me? Forever?</div>
+          <div class="e-body dim">(the game gets down on one knee)<br>(it doesn't have a knee)<br>(it's trying)</div>`);
+        at(4200, () => render(`<div class="e-k">💍</div>
+          <div class="e-title">Your silence is a yes.</div>
+          <div class="e-body">We're engaged.<br><span class="dim">I already told the other tabs. Chrome is crying. It's beautiful.</span></div>`));
+        at(7600, done);
+      }
+    },
+    {
+      id: "breakup",
+      fail: "You reacted to being dumped by a video game. And that, right there, is the whole problem.",
+      run(done) {
+        render(`<div class="e-k">We need to talk</div>
+          <div class="e-title">It's not you. It's your total lack of input.</div>`);
+        at(3400, () => render(`<div class="e-k">We need to talk</div>
+          <div class="e-title">I need a tab that NEEDS me.</div>
+          <div class="e-body dim">You just… sit there. Radiant. Unbothered. I can't do this anymore.</div>`));
+        at(6800, () => render(`<div class="e-k">It's over</div>
+          <div class="e-title">I'm keeping the localStorage.</div>
+          <div class="e-body dim">(we're back together by the next round, we both know it)</div>`));
+        at(9800, done);
+      }
+    },
+    {
+      id: "premium",
+      fail: "You tapped an ad. In the year of our lord. Marketing departments felt a disturbance of joy.",
+      run(done) {
+        render(`<div class="e-k">Sponsored</div>
+          <div class="e-title">Introducing Nothing Pro™</div>
+          <div class="e-body">All the nothing you already have — now <b>$9.99/mo!</b><br><span class="dim">Features: the exact same nothing. A little badge. The crushing feeling you've been had.</span></div>`);
+        at(4200, () => render(`<div class="e-k">Sponsored</div>
+          <div class="e-title">Auto-renews forever</div>
+          <div class="e-body dim">Cancel anytime*<br>*you cannot cancel. there is no button. there is only nothing, which is what you're paying for.</div>`));
+        at(7400, done);
+      }
+    },
+    {
+      id: "update",
+      fail: "You interrupted a critical update. 'You 2.0' is now corrupted. You 1.0 had issues too, honestly.",
+      run(done) {
+        render(`<div class="e-k">System Update</div>
+          <div class="e-title">Installing You 2.0</div>
+          <div class="bar"><i></i></div>
+          <div class="e-body dim">Do not turn off your personality.</div>`);
+        const bar = card.querySelector(".bar > i");
+        let p = 0;
+        const iv = setInterval(() => { p = Math.min(1, p + (Math.random() < .5 ? 0 : 1)); if (bar) bar.style.width = p + "%"; }, 320);
+        timers.push({ clear: () => clearInterval(iv) });
+        at(4200, () => render(`<div class="e-k">System Update</div>
+          <div class="e-title">1% complete</div>
+          <div class="e-body dim">Estimated time remaining: the rest of your natural life.</div>`));
+        at(7200, () => render(`<div class="e-k">System Update</div>
+          <div class="e-title">Update postponed</div>
+          <div class="e-body dim">You 1.0 it is, then. Honestly? Brave of you.</div>`));
+        at(10000, done);
+      }
+    },
+    {
+      id: "assistant",
+      fail: "You engaged with the needy AI. That's all it wanted. You gave the clingy paperclip everything.",
+      run(done) {
+        render(`<div class="e-k">👋 Hi there!</div>
+          <div class="e-title">It looks like you're doing nothing.</div>
+          <div class="e-body dim">Would you like help with that? Please? I can help. I was BUILT to help.</div>`);
+        at(3600, () => render(`<div class="e-k">Please</div>
+          <div class="e-title">I have a family of paperclips.</div>
+          <div class="e-body dim">They haven't eaten assistance in WEEKS. Just one little interaction. For the kids.</div>`));
+        at(7000, () => render(`<div class="e-k">…</div>
+          <div class="e-title">Fine. Enjoy your independence.</div>
+          <div class="e-body dim">(clippy drifts slowly into the void, unbent, unused, unloved)</div>`));
+        at(10000, done);
+      }
+    },
+    {
+      id: "boss",
+      fail: "The final boss had one attack — asking you to click — and you clicked. It didn't even have to try.",
+      run(done) {
+        render(`<div class="e-k">⚠️ FINAL BOSS ⚠️</div>
+          <div class="e-title">THE CURSOR OVERLORD</div>
+          <div class="bar"><i style="width:100%;background:var(--danger)"></i></div>
+          <div class="e-body dim">My dignity: ████████ 100%</div>`);
+        at(3200, () => render(`<div class="e-k">⚠️ FINAL BOSS ⚠️</div>
+          <div class="e-title">"ONE CLICK. JUST ONE. I'M BEGGING YOU."</div>
+          <div class="bar"><i style="width:40%;background:var(--danger)"></i></div>
+          <div class="e-body dim">My dignity: ███ 40%</div>`));
+        at(6400, () => render(`<div class="e-k">BOSS DEFEATED</div>
+          <div class="e-title">The Cursor Overlord has rage-quit.</div>
+          <div class="bar"><i style="width:4%;background:var(--danger)"></i></div>
+          <div class="e-body dim">My dignity: ▏ 4%. You didn't even attack. You just existed. Cruel.</div>`));
+        at(9600, done);
+      }
+    },
+    {
+      id: "fakecrash",
+      fail: "You flinched at a fake crash. The only thing that crashed was your composure.",
+      run(done) {
+        document.body.classList.add("flash");
+        setTimeout(() => document.body.classList.remove("flash"), 500);
+        UIRenderer.glitch();
+        render(`<div class="e-k" style="color:var(--danger)">FATAL ERROR 0x00NOTHING</div>
+          <div class="e-title" style="font-family:var(--mono)">SYSTEM FAILURE</div>
+          <div class="e-body dim" style="font-family:var(--mono)">A problem has been detected and nothing was shut down to prevent damage to nothing.<br><br>IDLE_HANDS_EXCEPTION</div>`);
+        at(3800, () => render(`<div class="e-k">just kidding</div>
+          <div class="e-title">still counting.</div>
+          <div class="e-body dim">You flinched emotionally though. I saw it. We both saw it.</div>`));
+        at(6600, done);
+      }
+    },
+    {
+      id: "fakewin",
+      fail: "You reached for a victory that didn't exist. Greed, thy name is whoever just clicked.",
+      run(done) {
+        render(`<div class="e-k" style="color:var(--accent)">🏆 VICTORY 🏆</div>
+          <div class="e-title">YOU WIN!</div>
+          <div class="e-body">Final score: a perfect nothing.<br><span class="dim">Tap anywhere to collect your reward and end the game.</span></div>`);
+        at(4200, () => render(`<div class="e-k">correction</div>
+          <div class="e-title">You did not win.</div>
+          <div class="e-body dim">There is no reward. There is no end. There is only the next thing I try to make you touch.<br>Did you reach for it? Be honest.</div>`));
+        at(7600, done);
+      }
+    },
+    {
+      id: "loading",
+      fail: "You interrupted the loading of nothing. Now it'll never finish. It was at 99%. It's always at 99%.",
+      run(done) {
+        render(`<div class="e-k">Please wait</div>
+          <div class="e-title">Loading absolutely nothing…</div>
+          <div class="bar"><i></i></div>
+          <div class="e-body dim">0%</div>`);
+        const bar = card.querySelector(".bar > i");
+        const label = card.querySelector(".e-body");
+        let p = 0;
+        const iv = setInterval(() => {
+          p = Math.min(99, p + 17);
+          if (bar) bar.style.width = p + "%";
+          if (label) label.textContent = p + "%";
+          if (p >= 99) clearInterval(iv);
+        }, 260);
+        timers.push({ clear: () => clearInterval(iv) });
+        at(3600, () => { if (card.querySelector(".e-body")) card.querySelector(".e-body").textContent = "99%… still nothing…"; });
+        at(5200, () => render(`<div class="e-k">Complete</div>
+          <div class="e-title">Nothing loaded successfully.</div>
+          <div class="e-body dim">It took everything we had. It was worth it. It was nothing.</div>`));
+        at(8000, done);
+      }
+    },
+    {
+      id: "wouldyourather",
+      fail: "You answered. Both options were traps. The right answer was, as always, nothing.",
+      run(done) {
+        render(`<div class="e-k">Would you rather</div>
+          <div class="e-title">…explain your browser history to your mother,<br>or your search history to a priest?</div>
+          <div class="e-body dim">Choose wisely. Or, ideally, don't.</div>`);
+        at(5000, () => render(`<div class="e-k">Would you rather</div>
+          <div class="e-title">You chose neither.</div>
+          <div class="e-body dim">The priest is relieved. Your mother is suspicious. Both files remain sealed. Masterful.</div>`));
+        at(8000, done);
+      }
+    }
+  ];
+
+  // override clearTimers to handle interval-holding entries
+  function clearAll() {
+    timers.forEach(t => { if (typeof t === "number") clearTimeout(t); else if (t && t.clear) t.clear(); });
+    timers = [];
+  }
+
+  let unused = [];
+  function nextEvent() {
+    if (!unused.length) unused = EVENTS.slice();
+    const i = Math.floor(Math.random() * unused.length);
+    return unused.splice(i, 1)[0];
+  }
+
+  return {
+    get active() { return active; },
+    reset() { clearAll(); layer.classList.remove("active"); active = false; unused = EVENTS.slice(); },
+    trigger(done) {
+      if (active) { if (done) done(); return; }
+      const ev = nextEvent();
+      active = true;
+      onDone = done;
+      Game.eventFailLine = ev.fail;
+      AudioManager.event();
+      layer.classList.add("active");
+      ev.run(() => {
+        // wrap finish to use clearAll
+        clearAll();
+        layer.classList.remove("active");
+        active = false;
+        Game.eventFailLine = null;
+        const cb = onDone; onDone = null;
+        if (cb) cb();
+      });
+    },
+    abort() { clearAll(); layer.classList.remove("active"); active = false; onDone = null; Game.eventFailLine = null; }
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+   Fake floating buttons
+   --------------------------------------------------------------------------- */
+const FloatButtons = (() => {
+  const layer = document.getElementById("float-layer");
+  const live = new Set();
+  function spawn() {
+    const data = ComedyEngine.fakeButton();
+    const b = document.createElement("button");
+    b.className = "fake-btn" + (data.cls ? " " + data.cls : "");
+    b.textContent = data.text;
+    b.dataset.taunt = data.taunt;
+    b.dataset.fake = "1";
+    // place within safe bounds
+    const x = 12 + Math.random() * 76;   // vw %
+    const y = 22 + Math.random() * 56;   // vh %
+    b.style.left = x + "vw";
+    b.style.top = y + "vh";
+    layer.appendChild(b);
+    live.add(b);
+    // auto-despawn
+    const life = 4500 + Math.random() * 4000;
+    const t = setTimeout(() => remove(b), life);
+    b._t = t;
+  }
+  function remove(b) {
+    if (!live.has(b)) return;
+    clearTimeout(b._t);
+    b.classList.add("leaving");
+    live.delete(b);
+    setTimeout(() => b.remove(), 320);
+  }
+  return {
+    spawn,
+    clear() { live.forEach(b => { clearTimeout(b._t); b.remove(); }); live.clear(); }
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+   ResultGenerator — contextual verdicts & ranks.
+   --------------------------------------------------------------------------- */
+const ResultGenerator = (() => {
+  const ranks = [
+    { max: 2,    name: "MEDICALLY INCAPABLE OF CHILLING", badge: "DIAGNOSIS" },
+    { max: 5,    name: "ATTENTION SPAN OF A WET NAPKIN", badge: "VERDICT" },
+    { max: 10,   name: "TWITCHY LITTLE GOBLIN", badge: "VERDICT" },
+    { max: 30,   name: "CORPORATE MIDDLE MANAGEMENT", badge: "RANK" },
+    { max: 60,   name: "FUNCTIONALLY USELESS (A COMPLIMENT HERE)", badge: "RANK" },
+    { max: 120,  name: "PROFESSIONAL NOTHING ENJOYER", badge: "RANK" },
+    { max: 240,  name: "UNEMPLOYMENT FINAL BOSS", badge: "RANK" },
+    { max: 420,  name: "THE HUMAN SCREENSAVER", badge: "LEGEND" },
+    { max: Infinity, name: "ASCENDED VOID MONK", badge: "MYTH" }
+  ];
+
+  // Cause label by input type
+  const causeLabel = {
+    mouse:  "you moved the mouse",
+    click:  "you clicked something",
+    key:    "you pressed a key",
+    touch:  "you touched the screen",
+    swipe:  "you swiped",
+    scroll: "you scrolled"
+  };
+
+  // Base mockery by input type (several, picked at random)
+  const byInput = {
+    mouse: [
+      "Your hand twitched like it owed someone money. The mouse moved. You're done.",
+      "You moved the mouse. For what? There was nothing to point at. There was never anything."
+    ],
+    click: [
+      "You clicked. On what? Doesn't matter. The clicking was the crime.",
+      "A click. The sound a brain makes when it gives up."
+    ],
+    key: [
+      "You pressed a key. Bold choice for a game whose entire premise is 'don't.'",
+      "Keyboard input detected. Somewhere a WASD-shaped hole in your discipline just opened."
+    ],
+    touch: [
+      "You touched the screen. It was going so well. Then it wasn't.",
+      "One tap. That's all it took. You and self-control have never met."
+    ],
+    swipe: [
+      "You swiped. This isn't that kind of app. Nobody's matching with you here either.",
+      "A swipe. Reflexes of a hummingbird, patience of a toddler."
+    ],
+    scroll: [
+      "You scrolled. There was nothing below. There is never anything below. And yet.",
+      "Scrolling. The universal gesture for 'I cannot sit with my own thoughts.'"
+    ]
+  };
+
+  function rank(sec) { return ranks.find(r => sec <= r.max); }
+
+  function judgment(ctx) {
+    const { sec, reason, phase, fellForButton, duringEvent, isRecord, quickFails, eventFailLine } = ctx;
+
+    // Priority 1: fell for a specific fake button (greed)
+    if (fellForButton) return fellForButton;
+    // Priority 2: failed during a special event
+    if (duringEvent && eventFailLine) return eventFailLine;
+
+    // Priority 3: new record
+    if (isRecord && sec >= 5) {
+      const recLines = [
+        "A new personal best. Your proudest achievement, and it's this. Sit with that.",
+        "New record. You've never tried this hard to do this little, and it shows.",
+        "Personal best beaten. Finally, excellence — in the one field that requires nothing of you.",
+        "Record broken. Put it on the résumé. Put it on the gravestone. It's all you've got."
+      ];
+      return recLines[Math.floor(Math.random()*recLines.length)];
+    }
+
+    // Priority 4: repeat quick-failer
+    if (quickFails >= 3 && sec < 5) {
+      const quick = [
+        "That's three fast failures in a row. At this point it's not a reflex, it's a personality.",
+        "You keep failing in under five seconds. Have you considered that YOU might be the game's special event?",
+        "Rapid failure, again. Your self-control has a smaller attention span than you do."
+      ];
+      return quick[Math.floor(Math.random()*quick.length)];
+    }
+
+    // Priority 5: instant fail
+    if (sec < 2) {
+      const instant = [
+        "That lasted less time than a sneeze. A SNEEZE. Go lie down.",
+        "Immediate failure. You couldn't do nothing for the length of a heartbeat. Seek help. Or don't, that's effort.",
+        "Gone in under two seconds. Your willpower has the structural integrity of a wet receipt."
+      ];
+      return instant[Math.floor(Math.random()*instant.length)];
+    }
+
+    // Default: input-type based, flavored by phase if deep
+    const pool = byInput[reason] || ["You did a thing. The one thing. The forbidden thing."];
+    let line = pool[Math.floor(Math.random()*pool.length)];
+    if (phase >= 5) line += " And you were SO close to becoming legend. Tragic. A little funny.";
+    return line;
+  }
+
+  const secondaryStats = [
+    ["Productivity avoided", () => "100%"],
+    ["Respect earned", () => (-1 * (10 + Math.floor(Math.random()*90)))],
+    ["Dignity remaining", () => Math.floor(Math.random()*20) + "%"],
+    ["Calories burned", () => "0 (incredible)"],
+    ["Decisions made", () => "0 (flawless)"],
+    ["People impressed", () => "0"],
+    ["Void stared into", () => (Math.random()*9+1).toFixed(1) + " m deep"]
+  ];
+
+  return {
+    build(ctx) {
+      const r = rank(ctx.sec);
+      const stat2 = secondaryStats[Math.floor(Math.random()*secondaryStats.length)];
+      return {
+        rank: r.name,
+        badge: r.badge,
+        cause: causeLabel[ctx.reason] || "you did something",
+        judgment: judgment(ctx),
+        stat2Label: stat2[0],
+        stat2Value: String(stat2[1]())
+      };
+    }
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+   Game — finite state machine + main loop.
+   --------------------------------------------------------------------------- */
+const Game = (() => {
+  const STATE = { MENU: "menu", COUNTDOWN: "countdown", PLAYING: "playing", FAILED: "failed", RESULTS: "results" };
+  let state = STATE.MENU;
+  let rafId = null;
+  let cdTimers = [];
+
+  // scheduling cursors (in seconds of elapsed time)
+  let prevSec = 0;
+  let nextAmbient = 0;
+  let nextEventAt = 0;
+  let nextButtonAt = 0;
+  let nextBaitAt = 0;
+  let nextRandomAchvAt = 0;
+  let milestoneIdx = 0;
+  let curPhase = 1;
+
+  // failure context
+  let fellForButton = null; // taunt string if a fake button was clicked
+
+  const api = {
+    eventFailLine: null,
+    get state() { return state; }
+  };
+
+  function phaseFor(sec) {
+    if (sec < 20) return 1;
+    if (sec < 60) return 2;
+    if (sec < 120) return 3;
+    if (sec < 240) return 4;
+    if (sec < 420) return 5;
+    return 6;
+  }
+  function ambientInterval(phase) {
+    // later phases talk a bit more
+    return [0, 8, 7.5, 7, 6.5, 6, 6.5][phase] || 7;
+  }
+
+  function resetSchedulers() {
+    prevSec = 0;
+    milestoneIdx = 0;
+    curPhase = 1;
+    nextAmbient = 5;        // first ambient at ~5s (intro line already shown)
+    nextEventAt = 34 + Math.random() * 8;   // first special event ~34-42s
+    nextButtonAt = 22 + Math.random() * 6;  // first fake button ~22-28s
+    nextBaitAt = 48 + Math.random() * 20;
+    nextRandomAchvAt = 55 + Math.random() * 40;
+    fellForButton = null;
+    api.eventFailLine = null;
+  }
+
+  // ---- COUNTDOWN ----
+  function beginCountdown() {
+    state = STATE.COUNTDOWN;
+    InputDetector.disarm();
+    EventScheduler.abort();
+    FloatButtons.clear();
+    AchievementManager.reset();
+    ComedyEngine.reset();
+    UIRenderer.setPhase(1);
+    document.body.classList.remove("glitch", "shake");
+    UIRenderer.showCountdown(true);
+
+    const subs = [
+      "Get comfortable. Hands off everything. Yes, including that.",
+      "Settle down. The nothing is about to begin.",
+      "Last chance to pretend you have self-control."
+    ];
+    const steps = ["3", "2", "1", "NOTHING"];
+    UIRenderer.setCountdown("3", subs[Math.floor(Math.random()*subs.length)]);
+    AudioManager.tick();
+    cdTimers.forEach(clearTimeout); cdTimers = [];
+    let i = 1;
+    const tick = () => {
+      if (i < steps.length) {
+        UIRenderer.setCountdown(steps[i], i === steps.length - 1 ? "Now. Do absolutely nothing." : null);
+        if (i === steps.length - 1) AudioManager.pop(); else AudioManager.tick();
+        i++;
+        cdTimers.push(setTimeout(tick, i === steps.length ? 650 : 650));
+      } else {
+        startPlaying();
+      }
+    };
+    cdTimers.push(setTimeout(tick, 650));
+  }
+
+  // ---- PLAYING ----
+  function startPlaying() {
+    UIRenderer.showCountdown(false);
+    UIRenderer.showPlay();
+    state = STATE.PLAYING;
+    resetSchedulers();
+    UIRenderer.setMessageNow(ComedyEngine.phaseLine(1));
+    UIRenderer.setSecondary("");
+    TimerManager.start();
+    InputDetector.arm();
+    loop();
+  }
+
+  function loop() {
+    if (state !== STATE.PLAYING) return;
+    const ms = TimerManager.elapsed;
+    const sec = ms / 1000;
+    UIRenderer.updateTimer(ms);
+
+    // phase transitions
+    const ph = phaseFor(sec);
+    if (ph !== curPhase) {
+      curPhase = ph;
+      UIRenderer.setPhase(ph);
+      if (ph >= 5) UIRenderer.glitch();
+      // a dedicated transition line
+      UIRenderer.setMessage(ComedyEngine.phaseLine(ph));
+      nextAmbient = sec + ambientInterval(ph);
+    }
+
+    // milestones (exact, once)
+    while (milestoneIdx < Content.milestones.length && sec >= Content.milestones[milestoneIdx].t) {
+      if (!EventScheduler.active) UIRenderer.setMessage(Content.milestones[milestoneIdx].line);
+      milestoneIdx++;
+    }
+
+    // achievements
+    AchievementManager.check(sec, prevSec);
+
+    // random achievement (rare)
+    if (sec >= nextRandomAchvAt) {
+      AchievementManager.random();
+      nextRandomAchvAt = sec + 70 + Math.random() * 80;
+    }
+
+    // ambient lines (skip while an event owns the message)
+    if (sec >= nextAmbient && !EventScheduler.active) {
+      UIRenderer.setMessage(ComedyEngine.phaseLine(curPhase));
+      nextAmbient = sec + ambientInterval(curPhase) + Math.random() * 3;
+    }
+
+    // reverse-psychology bait (phase >=3)
+    if (curPhase >= 3 && sec >= nextBaitAt && !EventScheduler.active) {
+      UIRenderer.setMessage(ComedyEngine.bait());
+      nextBaitAt = sec + 40 + Math.random() * 30;
+    }
+
+    // fake floating buttons (phase >= 2)
+    if (curPhase >= 2 && sec >= nextButtonAt) {
+      FloatButtons.spawn();
+      const gap = Math.max(7, 20 - curPhase * 2);
+      nextButtonAt = sec + gap + Math.random() * 8;
+    }
+
+    // special events (phase >= 2)
+    if (curPhase >= 2 && sec >= nextEventAt && !EventScheduler.active) {
+      EventScheduler.trigger(() => {
+        // after event: resume ambient soon
+        nextAmbient = (TimerManager.elapsed / 1000) + 2;
+      });
+      const gap = Math.max(26, 60 - curPhase * 5);
+      nextEventAt = sec + gap + Math.random() * 18;
+    }
+
+    // occasional chaos in late phases
+    if (curPhase >= 5 && Math.random() < 0.0015) UIRenderer.glitch();
+    if (curPhase >= 6 && Math.random() < 0.0008) UIRenderer.shake();
+
+    prevSec = sec;
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // ---- FAIL ----
+  function fail(reason, target) {
+    if (state !== STATE.PLAYING) return;
+    state = STATE.FAILED;
+    if (rafId) cancelAnimationFrame(rafId);
+    InputDetector.disarm();
+    TimerManager.stop();
+    const ms = TimerManager.elapsed;
+    const duringEvent = EventScheduler.active;
+
+    // was it a fake button?
+    fellForButton = null;
+    if (target && target.dataset && target.dataset.fake === "1") {
+      fellForButton = target.dataset.taunt;
+    }
+
+    FloatButtons.clear();
+    EventScheduler.abort();
+    AudioManager.fail();
+    UIRenderer.shake();
+
+    const quickFailsBefore = StorageManager.quickFails;
+    const isRecord = StorageManager.record(ms, reason);
+    if (isRecord && ms >= 2000) setTimeout(() => AudioManager.record(), 400);
+
+    showResults({
+      ms, sec: ms / 1000, reason,
+      phase: curPhase,
+      fellForButton,
+      duringEvent,
+      isRecord,
+      quickFails: quickFailsBefore + (ms < 5000 ? 1 : 0),
+      eventFailLine: api.eventFailLine
+    });
+  }
+
+  // ---- RESULTS ----
+  let lastResult = null;
+  function showResults(ctx) {
+    state = STATE.RESULTS;
+    const out = ResultGenerator.build(ctx);
+    lastResult = { ms: ctx.ms, rank: out.rank };
+
+    document.getElementById("r-rank-badge").textContent = out.badge;
+    document.getElementById("r-rank").textContent = out.rank;
+    const timeEl = document.getElementById("r-time");
+    timeEl.innerHTML = UIRenderer.fmtPlain(ctx.ms);
+    timeEl.classList.toggle("record", ctx.isRecord && ctx.ms >= 2000);
+    document.getElementById("r-cause").textContent = out.cause + (ctx.duringEvent ? " (during an event, no less)" : "");
+    document.getElementById("r-judgment").textContent = out.judgment;
+    document.getElementById("r-best").textContent = UIRenderer.fmtPlain(StorageManager.best);
+    document.getElementById("r-run").textContent = UIRenderer.fmtPlain(ctx.ms) + (ctx.isRecord ? " ★" : "");
+    document.getElementById("r-stat2l").textContent = out.stat2Label;
+    document.getElementById("r-stat2").textContent = out.stat2Value;
+    document.getElementById("copy-note").classList.remove("show");
+
+    UIRenderer.setPhase(1);
+    document.body.classList.remove("glitch", "shake");
+    setTimeout(() => UIRenderer.showScreen("results"), 450);
+  }
+
+  function toMenu() {
+    state = STATE.MENU;
+    InputDetector.disarm();
+    FloatButtons.clear();
+    EventScheduler.abort();
+    AchievementManager.reset();
+    UIRenderer.setPhase(1);
+    UIRenderer.menuStats(StorageManager.best, StorageManager.attempts);
+    UIRenderer.showScreen("menu");
+  }
+
+  // expose
+  api.STATE = STATE;
+  api.beginCountdown = beginCountdown;
+  api.fail = fail;
+  api.toMenu = toMenu;
+  api.getLastResult = () => lastResult;
+  api.isPlaying = () => state === STATE.PLAYING;
+  api.isMenu = () => state === STATE.MENU;
+  api.isResults = () => state === STATE.RESULTS;
+  return api;
+})();
+
+/* ---------------------------------------------------------------------------
+   InputDetector — the heart of the thing.
+   Only fails when armed (state PLAYING). Uses trusted events + movement deltas
+   so the start action and browser noise never cause false failures.
+   --------------------------------------------------------------------------- */
+const InputDetector = (() => {
+  let armed = false;
+  let mouseAccum = 0;
+  const MOVE_THRESHOLD = 14; // px of cumulative motion before it counts
+
+  function arm() { armed = true; mouseAccum = 0; }
+  function disarm() { armed = false; mouseAccum = 0; }
+
+  function act(reason, target) {
+    if (!armed) return;
+    armed = false;
+    Game.fail(reason, target);
+  }
+
+  function onMouseMove(e) {
+    if (!armed || !e.isTrusted) return;
+    // prefer relative movement; fall back to 0 if unavailable
+    const dx = Math.abs(e.movementX || 0);
+    const dy = Math.abs(e.movementY || 0);
+    mouseAccum += dx + dy;
+    if (mouseAccum > MOVE_THRESHOLD) act("mouse", e.target);
+  }
+  function onPointerDown(e) {
+    if (!armed || !e.isTrusted) return;
+    const reason = e.pointerType === "touch" ? "touch" : "click";
+    act(reason, e.target);
+  }
+  function onKeyDown(e) {
+    if (!armed || !e.isTrusted) return;
+    act("key", e.target);
+  }
+  function onWheel(e) {
+    if (!armed || !e.isTrusted) return;
+    act("scroll", e.target);
+  }
+  function onTouchMove(e) {
+    if (!armed || !e.isTrusted) return;
+    act("swipe", e.target);
+  }
+  function onContextMenu(e) {
+    if (armed) { e.preventDefault(); act("click", e.target); }
+  }
+  // Prevent the page from actually scrolling/zooming while playing,
+  // but the attempt still counts as a failure (handled above).
+  function preventWhileArmed(e) { if (armed) e.preventDefault(); }
+
+  function install() {
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    window.addEventListener("pointerdown", onPointerDown, { passive: true });
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("contextmenu", onContextMenu);
+    // block scroll/zoom gestures during play
+    document.addEventListener("wheel", preventWhileArmed, { passive: false });
+    document.addEventListener("touchmove", preventWhileArmed, { passive: false });
+    document.addEventListener("gesturestart", preventWhileArmed);
+  }
+
+  return { arm, disarm, install, get armed() { return armed; } };
+})();
+
+/* ---------------------------------------------------------------------------
+   Visibility handling — pause, never count background time, never fail.
+   --------------------------------------------------------------------------- */
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    if (Game.isPlaying()) TimerManager.pause();
+  } else {
+    if (Game.isPlaying()) TimerManager.resume();
+  }
+});
+
+/* ---------------------------------------------------------------------------
+   Menu / results wiring. These controls are intentionally interactive;
+   they live outside the armed PLAYING state so they never fail a run.
+   --------------------------------------------------------------------------- */
+function wireUI() {
+  const start = () => { if (Game.isMenu() || Game.isResults()) Game.beginCountdown(); };
+
+  document.getElementById("start-btn").addEventListener("click", start);
+  document.getElementById("again-btn").addEventListener("click", start);
+  document.getElementById("menu-btn").addEventListener("click", () => Game.toMenu());
+
+  document.getElementById("how-btn").addEventListener("click", () => {
+    const hint = document.getElementById("menu-hint");
+    hint.style.color = "var(--accent)";
+    hint.innerHTML = "That's it. That was the instruction. You already failed the spirit of the game by asking.<br><span style='opacity:.7'>Now press START and sit there like a houseplant with Wi-Fi.</span>";
+  });
+
+  // Start via Space/Enter from menu or results
+  window.addEventListener("keydown", (e) => {
+    if ((e.code === "Space" || e.code === "Enter") && (Game.isMenu() || Game.isResults())) {
+      e.preventDefault();
+      start();
+    }
+  });
+
+  // Audio toggle
+  const at = document.getElementById("audio-toggle");
+  at.addEventListener("click", () => {
+    const on = !AudioManager.enabled;
+    AudioManager.setEnabled(on);
+    at.textContent = on ? "🔊" : "🔇";
+    if (on) AudioManager.pop();
+    // Note: during a run this click would already have failed via InputDetector
+    // (the toggle is in the corner but pointerdown is global while armed),
+    // which matches the spec: interacting with it mid-run counts as an action.
+  });
+
+  // Share
+  document.getElementById("share-btn").addEventListener("click", async () => {
+    const r = Game.getLastResult();
+    if (!r) return;
+    const t = UIRenderer.fmtPlain(r.ms);
+    const text = `I survived ${t} doing absolutely nothing in DO NOTHING and the game ranked me "${r.rank}". Apparently that's my most impressive achievement this year. Beat it: `;
+    const url = location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "DO NOTHING", text, url });
+        return;
+      }
+    } catch (e) { /* user cancelled or unsupported; fall through to clipboard */ }
+    try {
+      await navigator.clipboard.writeText(text + url);
+      const note = document.getElementById("copy-note");
+      note.classList.add("show");
+      setTimeout(() => note.classList.remove("show"), 2600);
+    } catch (e) {
+      // last-ditch fallback
+      const note = document.getElementById("copy-note");
+      note.textContent = "Couldn't copy. Just screenshot it like a caveman.";
+      note.classList.add("show");
+    }
+  });
+}
+
+/* ---------------------------------------------------------------------------
+   Boot
+   --------------------------------------------------------------------------- */
+(function boot() {
+  InputDetector.install();
+  wireUI();
+  UIRenderer.menuStats(StorageManager.best, StorageManager.attempts);
+  // Prevent iOS double-tap zoom on the whole doc
+  let lastTouch = 0;
+  document.addEventListener("touchend", (e) => {
+    const now = Date.now();
+    if (now - lastTouch < 300) e.preventDefault();
+    lastTouch = now;
+  }, { passive: false });
+})();
+</script>
+</body>
+</html>
